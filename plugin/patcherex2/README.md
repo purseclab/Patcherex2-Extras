@@ -8,4 +8,5 @@ pip3 install -e . && python3 -m bs_patcherex2 --install
 
 ## Usage 
 Open the decompiler:
-1. If you are in Ghidra, use the menu to start the BS backend first
+1. If you are in Ghidra, use the menu to start the Patcherex2 BS backend first
+2. Right click anywhere and click Add Patcherex Patch
