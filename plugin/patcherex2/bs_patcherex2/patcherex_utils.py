@@ -16,8 +16,8 @@ from patcherex2 import (
 def add_patch(deci):
     patch_name = ask_for_choice(deci, "What patch do you want to add?")
 
-    binary_path = deci.binary_path()
-    p = Patcherex(deci.binary_path())
+    binary_path = deci.binary_path
+    p = Patcherex(binary_path)
 
     if patch_name == "ModifyRawBytesPatch":
         addr = ask_for_address(deci)
@@ -70,8 +70,8 @@ def add_patch(deci):
 
     p.patches.append(patch)
     p.apply_patches()
-    p.binfmt_tool.save_binary(binary_path)
-    display_message("Binary patched! Please reload it to see changes.")
+    p.binfmt_tool.save_binary(binary_path + "-patched")
+    display_message(deci, "Binary patched! A new file with '-patched' appended has been made. Load it to see the changes.")
 
 def ask_for_instructions(deci, question="Instructions for the patch?", title="Patcherex2"):
     answer = deci.ghidra.bridge.remote_eval(
@@ -129,7 +129,6 @@ def ask_for_choice(deci, question, title="Patcherex2"):
     answer = deci.ghidra.bridge.remote_eval(
         "askChoice(title, question, choices, default)", title=title, question=question, choices=choices, default="ModifyRawBytesPatch", timeout_override=-1
     )
-    deci.print(answer)
     return answer if answer else ""
 
 def display_message(deci, message):
