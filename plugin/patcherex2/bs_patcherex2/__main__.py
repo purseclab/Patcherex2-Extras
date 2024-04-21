@@ -31,6 +31,9 @@ def main():
     elif args.server:
         if args.server != "ghidra":
             raise NotImplementedError("Only Ghidra is supported for now")
+        
+        from .interface_overrides.ghidra import start_ghidra_remote_ui
+        start_ghidra_remote_ui()
 
         create_plugin(force_decompiler="ghidra")
 

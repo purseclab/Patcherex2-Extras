@@ -2,6 +2,7 @@ from pathlib import Path
 
 from libbs.plugin_installer import LibBSPluginInstaller
 
+from .controller import PatcherexController
 from .patcherex_utils import add_patch
 
 __version__ = "0.0.1"
@@ -23,12 +24,14 @@ def create_plugin(*args, **kwargs):
         gui_init_kwargs=kwargs,
     )
 
-    deci.gui_register_ctx_menu(
-        "Add Patcherex Patch",
-        "Add Patcherex Patch",
-        lambda *x, **y: add_patch(deci),
-        category="Patcherex2",
-    )
+    # controller = PatcherexController(deci)
+
+    # deci.gui_register_ctx_menu(
+    #     "Add Patcherex Patch",
+    #     "Add Patcherex Patch",
+    #     lambda *x, **y: controller._init_ui_components(),
+    #     category="Patcherex2",
+    # )
 
     return deci.gui_plugin
 

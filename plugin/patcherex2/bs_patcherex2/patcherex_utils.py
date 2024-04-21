@@ -8,7 +8,7 @@ from patcherex2 import (
     ModifyRawBytesPatch,
     Patcherex,
     RemoveDataPatch,
-    #RemoveFunctionPatch,
+    # RemoveFunctionPatch,
     RemoveInstructionPatch,
 )
 
@@ -52,7 +52,7 @@ def add_patch(deci):
     elif patch_name == "RemoveFunctionPatch":
         display_message("Not Implemented")
         return
-    
+
     elif patch_name == "ModifyInstructionPatch":
         addr = ask_for_address(deci)
         instr = ask_for_instructions(deci)
@@ -71,47 +71,85 @@ def add_patch(deci):
     p.patches.append(patch)
     p.apply_patches()
     p.binfmt_tool.save_binary(binary_path + "-patched")
-    display_message(deci, "Binary patched! A new file with '-patched' appended has been made. Load it to see the changes.")
+    display_message(
+        deci,
+        "Binary patched! A new file with '-patched' appended has been made. Load it to see the changes.",
+    )
 
-def ask_for_instructions(deci, question="Instructions for the patch?", title="Patcherex2"):
+
+def ask_for_instructions(
+    deci, question="Instructions for the patch?", title="Patcherex2"
+):
     answer = deci.ghidra.bridge.remote_eval(
-        "askString(title, question)", title=title, question=question, timeout_override=-1
+        "askString(title, question)",
+        title=title,
+        question=question,
+        timeout_override=-1,
     )
     return answer
+
 
 def ask_for_code(deci, question="Code for the patch?", title="Patcherex2"):
     answer = deci.ghidra.bridge.remote_eval(
-        "askString(title, question)", title=title, question=question, timeout_override=-1
+        "askString(title, question)",
+        title=title,
+        question=question,
+        timeout_override=-1,
     )
     return answer
 
+
 def ask_for_size(deci, question="Size of the patch?", title="Patcherex2"):
     answer = deci.ghidra.bridge.remote_eval(
-        "askString(title, question)", title=title, question=question, timeout_override=-1
+        "askString(title, question)",
+        title=title,
+        question=question,
+        timeout_override=-1,
     )
     return int(answer)
 
+
 def ask_for_bytes(deci, question="Bytes to use for the patch?", title="Patcherex2"):
     answer = deci.ghidra.bridge.remote_eval(
-        "askString(title, question)", title=title, question=question, timeout_override=-1
+        "askString(title, question)",
+        title=title,
+        question=question,
+        timeout_override=-1,
     )
     return answer.encode() if answer else b""
 
-def ask_for_address(deci, question="Address to use for the patch? (start it with 0x)", title="Patcherex2"):
+
+def ask_for_address(
+    deci,
+    question="Address to use for the patch? (start it with 0x)",
+    title="Patcherex2",
+):
     answer = deci.ghidra.bridge.remote_eval(
-        "askString(title, question)", title=title, question=question, timeout_override=-1
+        "askString(title, question)",
+        title=title,
+        question=question,
+        timeout_override=-1,
     )
     return int(answer, 16)
 
-def ask_for_address_or_name(deci, question="Address or name to use for the patch? (if address, start it with 0x)", title="Patcherex2"):
+
+def ask_for_address_or_name(
+    deci,
+    question="Address or name to use for the patch? (if address, start it with 0x)",
+    title="Patcherex2",
+):
     answer = deci.ghidra.bridge.remote_eval(
-        "askString(title, question)", title=title, question=question, timeout_override=-1
+        "askString(title, question)",
+        title=title,
+        question=question,
+        timeout_override=-1,
     )
 
     if answer[:2] == "0x":
         return int(answer, 16)
-    
+
     return answer
+
 
 def ask_for_choice(deci, question, title="Patcherex2"):
     choices = [
@@ -127,9 +165,15 @@ def ask_for_choice(deci, question, title="Patcherex2"):
         "RemoveInstructionPatch",
     ]
     answer = deci.ghidra.bridge.remote_eval(
-        "askChoice(title, question, choices, default)", title=title, question=question, choices=choices, default="ModifyRawBytesPatch", timeout_override=-1
+        "askChoice(title, question, choices, default)",
+        title=title,
+        question=question,
+        choices=choices,
+        default="ModifyRawBytesPatch",
+        timeout_override=-1,
     )
     return answer if answer else ""
+
 
 def display_message(deci, message):
     deci.ghidra.bridge.remote_eval(
