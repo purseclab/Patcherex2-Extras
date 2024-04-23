@@ -10,20 +10,17 @@ from libbs.decompilers import GHIDRA_DECOMPILER
 from ..patcherex_ui import ControlPanel
 from ..controller import PatcherexController
 from ..patcherex_ui import PatcherexDialog
+from ..patcherex_ui import ConfigurePatcherexDialog
 
 l = logging.getLogger(__name__)
 
 
 class ControlPanelWindow(QMainWindow):
-    """
-    The class for the window that shows changes/info to BinSync data. This includes things like
-    changes to functions or structs.
-    """
 
     def __init__(self):
         super(ControlPanelWindow, self).__init__()
         self.setWindowTitle("Patcherex")
-        self.width_hint = 300
+        self.setMinimumSize(500, 450)
 
         self._interface = DecompilerInterface.discover(force_decompiler=GHIDRA_DECOMPILER)
         self.controller = PatcherexController(self._interface)
@@ -34,15 +31,11 @@ class ControlPanelWindow(QMainWindow):
         self.control_panel.show()
         self.setCentralWidget(self.control_panel)
 
-    #
-    # handlers
-    #
-
-    # def configure(self):
-    #     config = ConfigureBSDialog(self.controller)
-    #     config.show()
-    #     config.exec_()
-    #     return self.controller.check_client()
+    def configure(self):
+        config = ConfigurePatcherexDialog(self.controller)
+        config.show()
+        config.exec_()
+        return True
 
     def closeEvent(self, event):
         self.controller.shutdown()
@@ -52,11 +45,11 @@ def start_ghidra_remote_ui():
     app = QApplication()
     cp_window = ControlPanelWindow()
 
-    # control panel should stay hidden until a good config happens
-
-    cp_window.show()
-    # dialog = PatcherexDialog(cp_window.controller)
-    # dialog.show()
-    # dialog.exec_()
+    cp_window.hide()
+    connected = cp_window.configure()
+    if connected:
+        cp_window.show()
+    else:
+        sys.exit(1)
 
     app.exec_()

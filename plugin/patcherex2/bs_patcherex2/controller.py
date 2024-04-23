@@ -1,6 +1,7 @@
 class PatcherexController:
     def __init__(self, deci):
         self.deci = deci
+        self.patches = []
 
     def _init_ui_components(self):
         from libbs.ui.qt_objects import (
