@@ -168,6 +168,7 @@ class UIPatch(QWidget):
         self.parent = parent
         self.controller = controller
         self.patch = patch
+        self.patch_name = patch_name
         self.patch_args = patch_args
         self.main_layout = QHBoxLayout()
         name = QLabel()
@@ -175,11 +176,20 @@ class UIPatch(QWidget):
         remove = QPushButton()
         remove.setText("Remove")
         remove.clicked.connect(self.remove_from_parent)
+        view = QPushButton()
+        view.setText("View")
+        view.clicked.connect(self.view)
     
         self.main_layout.addWidget(name)
+        self.main_layout.addWidget(view)
         self.main_layout.addWidget(remove)
         self.setLayout(self.main_layout)
     
+    def view(self):
+        patch_string = self.patch_name + "(" + self.patch_args.__repr__()[1:-1] + ")"
+        self.controller.deci.print(patch_string)
+        display_message(self.controller, patch_string)
+
     def remove_from_parent(self):
         self.controller.patches.remove(self)
         self.setParent(None)
