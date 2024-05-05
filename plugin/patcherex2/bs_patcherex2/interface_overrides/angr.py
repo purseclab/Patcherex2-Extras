@@ -99,5 +99,5 @@ class PatcherexPlugin(GenericBSAngrManagementPlugin):
         if self.control_panel_view.isVisible():
             self.control_panel_view.close()
             return
-
+        
         self.workspace.add_view(self.control_panel_view)
