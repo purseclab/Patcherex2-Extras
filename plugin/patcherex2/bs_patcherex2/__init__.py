@@ -16,24 +16,20 @@ def create_plugin(*args, **kwargs):
     """
 
     from libbs.api import DecompilerInterface
+    from libbs.decompilers import ANGR_DECOMPILER
 
-    deci = DecompilerInterface.discover(
-        plugin_name="Patcherex2",
-        init_plugin=True,
-        gui_init_args=args,
-        gui_init_kwargs=kwargs,
-    )
+    current_decompiler = DecompilerInterface.find_current_decompiler()
 
-    # controller = PatcherexController(deci)
-
-    # deci.gui_register_ctx_menu(
-    #     "Add Patcherex Patch",
-    #     "Add Patcherex Patch",
-    #     lambda *x, **y: controller._init_ui_components(),
-    #     category="Patcherex2",
-    # )
-
-    return deci.gui_plugin
+    is_angr = (current_decompiler == ANGR_DECOMPILER)
+    
+    if not is_angr:
+        deci = DecompilerInterface.discover(
+            plugin_name="Patcherex2",
+            init_plugin=True,
+            gui_init_args=args,
+            gui_init_kwargs=kwargs,
+        )
+        return deci.gui_plugin
 
 
 class BSPatcherex2Installer(LibBSPluginInstaller):

@@ -10,7 +10,6 @@ plugin_command = "bs_patcherex2 -s ghidra"
 
 def create_plugin(*args, **kwargs):
     from bs_patcherex2 import create_plugin as _create_plugin
-
     return _create_plugin(*args, **kwargs)
 
 
@@ -52,16 +51,16 @@ else:
     if not has_ida and not has_angr:
         create_plugin()
     elif has_angr:
-        from angrmanagement.plugins import BasePlugin
+        # class AngrBSPluginThunk(BasePlugin):
+        #     def __init__(self, workspace):
+        #         super().__init__(workspace)
+        #         globals()["workspace"] = workspace
+        #         self.plugin = create_plugin()
 
-        class AngrBSPluginThunk(BasePlugin):
-            def __init__(self, workspace):
-                super().__init__(workspace)
-                globals()["workspace"] = workspace
-                self.plugin = create_plugin()
-
-            def teardown(self):
-                pass
+        #     def teardown(self):
+        #         pass
+        from bs_patcherex2.interface_overrides.angr import PatcherexPlugin
+        __all__ = ["PatcherexPlugin"]
 
 
 def PLUGIN_ENTRY(*args, **kwargs):  # noqa N802
