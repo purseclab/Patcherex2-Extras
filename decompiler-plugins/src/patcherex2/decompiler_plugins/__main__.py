@@ -1,8 +1,7 @@
 import argparse
 
-import bs_patcherex2
-
-from . import BSPatcherex2Installer, create_plugin
+from . import create_plugin
+from .installer import Patcherex2PluginInstaller
 
 
 def main():
@@ -21,20 +20,16 @@ def main():
         help="Run a headless server for the watcher plugin",
         choices=["ghidra"],
     )
-    parser.add_argument(
-        "-v", "--version", action="version", version=bs_patcherex2.__version__
-    )
     args = parser.parse_args()
 
     if args.install:
-        BSPatcherex2Installer().install()
+        Patcherex2PluginInstaller().install()
     elif args.server:
         if args.server != "ghidra":
             raise NotImplementedError("Only Ghidra is supported for now")
-        
-        from .interface_overrides.ghidra import start_ghidra_remote_ui
-        start_ghidra_remote_ui()
+        from .decompiler_specific.ghidra.interface import start_ghidra_remote_ui
 
+        start_ghidra_remote_ui()
         create_plugin(force_decompiler="ghidra")
 
 

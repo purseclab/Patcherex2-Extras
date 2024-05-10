@@ -2,12 +2,10 @@
 plugin_metadata_version = 0
 
 [plugin]
-name = "bs_patcherex2"
-shortname = "bs_patcherex2"
+name = "Patcherex2"
+shortname = "patcherex2"
 version = "0.0.0"
-description = ""
-long_description = ""
 platforms = ["windows", "linux", "macos"]
 min_angr_version = "9.0.0.0"
 author = "PurSec Lab"
-entrypoints = ["bs_patcherex2_plugin.py"]
+entrypoints = ["patcherex2_plugin.py"]

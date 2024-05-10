@@ -41,24 +41,25 @@ from patcherex2 import (
 )
 
 
-class PatcherexUIWorker(QObject):
+class Patcherex2UIWorker(QObject):
     def __init__(self):
         QObject.__init__(self)
 
     def run(self):
-        dialog = PatcherexDialog()
+        dialog = Patcherex2Dialog()
         dialog.exec_()
 
 
-class PatcherexDialog(QDialog):
+class Patcherex2Dialog(QDialog):
     def __init__(self, controller, parent):
         super().__init__(self, parent=parent)
         self.controller = controller
         self.setWindowTitle("test")
 
+
 class ControlPanel(QWidget):
     def __init__(self, controller, parent=None):
-        super(ControlPanel, self).__init__(parent)
+        super().__init__(parent)
         self.controller = controller
         self.main_layout = QVBoxLayout()
 
@@ -101,8 +102,11 @@ class ControlPanel(QWidget):
         p.patches = [i.patch for i in self.controller.patches]
         p.apply_patches()
         p.binfmt_tool.save_binary(binary_path + "-patched")
-        display_message(self.controller, "Binary patched! A new file with '-patched' appended has been made. Load it to see the changes.")
-        
+        display_message(
+            self.controller,
+            "Binary patched! A new file with '-patched' appended has been made. Load it to see the changes.",
+        )
+
     def add_patch(self):
         dialog = PatchSelector(self.controller)
         dialog.exec_()
@@ -157,14 +161,21 @@ class ControlPanel(QWidget):
             ask_for_size(self.controller)
             patch = RemoveInstructionPatch(*self.controller.new_patch_args)
 
-        ui_patch = UIPatch(self.controller, self.controller.new_patch_type, patch, self.controller.new_patch_args, parent=self)
+        ui_patch = UIPatch(
+            self.controller,
+            self.controller.new_patch_type,
+            patch,
+            self.controller.new_patch_args,
+            parent=self,
+        )
         self.patch_layout.addWidget(ui_patch)
         self.controller.patches.append(ui_patch)
         self.update()
 
+
 class UIPatch(QWidget):
     def __init__(self, controller, patch_name, patch, patch_args, parent=None):
-        super(UIPatch, self).__init__(parent)
+        super().__init__(parent)
         self.parent = parent
         self.controller = controller
         self.patch = patch
@@ -179,12 +190,12 @@ class UIPatch(QWidget):
         view = QPushButton()
         view.setText("View")
         view.clicked.connect(self.view)
-    
+
         self.main_layout.addWidget(name)
         self.main_layout.addWidget(view)
         self.main_layout.addWidget(remove)
         self.setLayout(self.main_layout)
-    
+
     def view(self):
         patch_string = self.patch_name + "(" + self.patch_args.__repr__()[1:-1] + ")"
         self.controller.deci.print(patch_string)
@@ -196,16 +207,16 @@ class UIPatch(QWidget):
         self.parent.update()
 
 
-class ConfigurePatcherexDialog(QDialog):
+class ConfigurePatcherex2Dialog(QDialog):
     def __init__(self, controller, parent=None):
         super().__init__(parent)
         self.controller = controller
 
-        self.setWindowTitle("Configure Patcherex")
+        self.setWindowTitle("Configure Patcherex2")
         self.setMinimumSize(300, 250)
         self.main_layout = QVBoxLayout()
         self.main_layout.setAlignment(Qt.AlignCenter)
-    
+
         not_implemented = QLabel(self)
         not_implemented.setText("This Section is Not Implemented")
         ok_button = QPushButton(self)
@@ -216,9 +227,10 @@ class ConfigurePatcherexDialog(QDialog):
         self.main_layout.addWidget(ok_button)
 
         self.setLayout(self.main_layout)
-    
+
     def on_ok_clicked(self):
         self.close()
+
 
 class PatchSelector(QDialog):
     def __init__(self, controller, parent=None):
@@ -226,12 +238,12 @@ class PatchSelector(QDialog):
         self.controller = controller
         self.setWindowTitle("Patcherex2")
         self.layout = QVBoxLayout()
-        
+
         instructions = QLabel("Which Patch Would You Like to Add?")
         self.layout.addWidget(instructions)
-        
+
         self.button_group = QButtonGroup(self)  # Group for mutually exclusive selection
-        
+
         choices = [
             "ModifyRawBytesPatch",
             "ModifyDataPatch",
@@ -244,7 +256,7 @@ class PatchSelector(QDialog):
             "InsertInstructionPatch",
             "RemoveInstructionPatch",
         ]
-        
+
         self.radio_buttons = []
         for i, choice in enumerate(choices):
             radio_button = QRadioButton(choice)
@@ -253,17 +265,18 @@ class PatchSelector(QDialog):
             self.layout.addWidget(radio_button)
 
         self.radio_buttons[0].setChecked(True)
-        
+
         confirm_button = QPushButton("Confirm")
         confirm_button.clicked.connect(self.confirm_selection)
         self.layout.addWidget(confirm_button)
-        
+
         self.setLayout(self.layout)
-    
+
     def confirm_selection(self):
         choice = self.button_group.checkedButton().text()
         self.controller.new_patch_type = choice
         self.close()
+
 
 class MultiLineDialog(QDialog):
     def __init__(self, controller, query, parent=None):
@@ -285,6 +298,7 @@ class MultiLineDialog(QDialog):
         self.controller.new_patch_args.append(self.text_input.toPlainText())
         self.close()
 
+
 class SingleLineDialog(QDialog):
     def __init__(self, controller, query, parent=None):
         super().__init__(parent)
@@ -305,6 +319,7 @@ class SingleLineDialog(QDialog):
         self.controller.new_patch_args.append(self.text_input.text())
         self.close()
 
+
 class MessageDialog(QDialog):
     def __init__(self, controller, message, parent=None):
         super().__init__(parent)
@@ -322,13 +337,16 @@ class MessageDialog(QDialog):
     def confirm_selection(self):
         self.close()
 
+
 def ask_for_instructions(controller):
     dialog = MultiLineDialog(controller, "Instructions for the patch?")
     dialog.exec_()
 
+
 def ask_for_code(controller):
     dialog = MultiLineDialog(controller, "Code for the patch?")
     dialog.exec_()
+
 
 def ask_for_size(controller):
     dialog = SingleLineDialog(controller, "Size of the patch?")
@@ -336,26 +354,34 @@ def ask_for_size(controller):
     arg = controller.new_patch_args[-1]
     controller.new_patch_args[-1] = int(arg)
 
+
 def ask_for_bytes(controller):
     dialog = MultiLineDialog(controller, "Bytes to use for the patch?")
     dialog.exec_()
     arg = controller.new_patch_args[-1]
     controller.new_patch_args[-1] = arg.encode()
 
+
 def ask_for_address(controller):
-    dialog = SingleLineDialog(controller, "Address to use for the patch? (start it with 0x)")
+    dialog = SingleLineDialog(
+        controller, "Address to use for the patch? (start it with 0x)"
+    )
     dialog.exec_()
     arg = controller.new_patch_args[-1]
     controller.new_patch_args[-1] = int(arg, 16)
 
 
 def ask_for_address_or_name(controller):
-    dialog = SingleLineDialog(controller, "Address or name to use for the patch? (if address, start it with 0x)")
+    dialog = SingleLineDialog(
+        controller,
+        "Address or name to use for the patch? (if address, start it with 0x)",
+    )
     dialog.exec_()
     arg = controller.new_patch_args[-1]
 
     if arg[:2] == "0x":
         controller.new_patch_args[-1] = int(arg, 16)
+
 
 def display_message(controller, message):
     dialog = MessageDialog(controller, message)

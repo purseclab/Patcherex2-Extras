@@ -5,11 +5,12 @@
 
 # pyright: reportMissingImports=false
 
-plugin_command = "bs_patcherex2 -s ghidra"
+plugin_command = "patcherex2-decompiler-plugins -s ghidra"
 
 
 def create_plugin(*args, **kwargs):
-    from bs_patcherex2 import create_plugin as _create_plugin
+    from patcherex2.decompiler_plugins import create_plugin as _create_plugin
+
     return _create_plugin(*args, **kwargs)
 
 
@@ -59,8 +60,11 @@ else:
 
         #     def teardown(self):
         #         pass
-        from bs_patcherex2.interface_overrides.angr import PatcherexPlugin
-        __all__ = ["PatcherexPlugin"]
+        from patcherex2.decompiler_plugins.decompiler_specific.angr.interface import (
+            Patcherex2Plugin,
+        )
+
+        __all__ = ["Patcherex2Plugin"]
 
 
 def PLUGIN_ENTRY(*args, **kwargs):  # noqa N802

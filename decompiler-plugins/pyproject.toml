@@ -1,0 +1,28 @@
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "patcherex2-decompiler-plugins"
+version = "0.0.0"
+requires-python = ">=3.8"
+readme = "README.md"
+dependencies = [
+    "patcherex2",
+    "libbs",
+]
+
+[project.scripts]
+patcherex2-decompiler-plugins = "patcherex2.decompiler_plugins.__main__:main"
+
+[project.urls]
+"Homepage" = "https://github.com/purseclab/Patcherex2-Extras"
+"Source" = "https://github.com/purseclab/Patcherex2-Extras"
+"Tracker" = "https://github.com/purseclab/Patcherex2-Extras/issues"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["patcherex2.decompiler_plugins"]
+
+[tool.ruff.lint]
+extend-select = ["I", "N", "UP", "B"]

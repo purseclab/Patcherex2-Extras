@@ -1,33 +1,31 @@
-import logging
 import typing
 
-from libbs.ui.version import set_ui_version
-set_ui_version("PySide6")
-
-from libbs.ui.qt_objects import QVBoxLayout
-from libbs.decompilers.angr.compat import GenericBSAngrManagementPlugin
-
 from angrmanagement.ui.views.view import BaseView
+from libbs.decompilers.angr.compat import GenericBSAngrManagementPlugin
+from libbs.ui.qt_objects import QVBoxLayout
+from libbs.ui.version import set_ui_version
 
-from ..patcherex_ui import ControlPanel
-from ..controller import PatcherexController
-from ..patcherex_ui import ConfigurePatcherexDialog
+from ...controller import Patcherex2Controller
+from ...ui import ConfigurePatcherex2Dialog, ControlPanel
 
 if typing.TYPE_CHECKING:
     from angrmanagement.ui.workspace import Workspace
 
 
-_l = logging.getLogger(__name__)
+set_ui_version("PySide6")
+
 
 class ControlPanelView(BaseView):
     """
-    The class for the window that shows changes/info to Patcherex data.
+    The class for the window that shows changes/info to Patcherex2 data.
     """
 
     def __init__(self, instance, default_docking_position, controller, *args, **kwargs):
-        super().__init__('patching', instance.workspace, default_docking_position, *args, **kwargs)
+        super().__init__(
+            "patching", instance.workspace, default_docking_position, *args, **kwargs
+        )
         self.base_caption = "Patcherex2: Control Panel"
-        self.controller: PatcherexController = controller
+        self.controller: Patcherex2Controller = controller
         self.control_panel = ControlPanel(self.controller)
         self._init_widgets()
         self.width_hint = 300
@@ -41,13 +39,14 @@ class ControlPanelView(BaseView):
         self.setLayout(main_layout)
 
 
-class PatcherexPlugin(GenericBSAngrManagementPlugin):
+class Patcherex2Plugin(GenericBSAngrManagementPlugin):
     """
     Controller plugin for BinSync
     """
+
     def __init__(self, workspace: "Workspace"):
         """
-        The entry point for the Patcherex plugin. This class is responsible for both initializing the GUI and
+        The entry point for the Patcherex2 plugin. This class is responsible for both initializing the GUI and
         deiniting it as well.
 
         @param workspace:   an AM _workspace (usually found in _instance)
@@ -55,8 +54,10 @@ class PatcherexPlugin(GenericBSAngrManagementPlugin):
         super().__init__(workspace)
 
         # construct the controller and control panel
-        self.controller = PatcherexController(self.interface)
-        self.control_panel_view = ControlPanelView(workspace.main_instance, 'right', self.controller)
+        self.controller = Patcherex2Controller(self.interface)
+        self.control_panel_view = ControlPanelView(
+            workspace.main_instance, "right", self.controller
+        )
         self.controller.control_panel = self.control_panel_view
 
         self.sync_menu = None
@@ -70,7 +71,7 @@ class PatcherexPlugin(GenericBSAngrManagementPlugin):
     # BinSync Menu
     #
 
-    MENU_BUTTONS = ('Configure Patcherex2 ...', 'Toggle Patcherex2 Panel')
+    MENU_BUTTONS = ("Configure Patcherex2 ...", "Toggle Patcherex2 Panel")
     MENU_CONFIG_ID = 0
     MENU_TOGGLE_PANEL_ID = 1
 
@@ -81,15 +82,14 @@ class PatcherexPlugin(GenericBSAngrManagementPlugin):
 
         mapping = {
             self.MENU_CONFIG_ID: self.open_sync_config_dialog,
-            self.MENU_TOGGLE_PANEL_ID: self.toggle_sync_panel
+            self.MENU_TOGGLE_PANEL_ID: self.toggle_sync_panel,
         }
 
         # call option mapped to each menu pos
         mapping.get(idx)()
 
     def open_sync_config_dialog(self):
-
-        sync_config = ConfigurePatcherexDialog(self.controller)
+        sync_config = ConfigurePatcherex2Dialog(self.controller)
         sync_config.exec_()
 
         if self.control_panel_view not in self.workspace.view_manager.views:
@@ -99,5 +99,5 @@ class PatcherexPlugin(GenericBSAngrManagementPlugin):
         if self.control_panel_view.isVisible():
             self.control_panel_view.close()
             return
-        
+
         self.workspace.add_view(self.control_panel_view)
