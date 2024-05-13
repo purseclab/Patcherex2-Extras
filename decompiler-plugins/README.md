@@ -3,7 +3,7 @@ Plugin that allows you to use Patcherex2 in the most common decompilers
 
 ## Install 
 ```
-pip3 install -e . && python3 -m patcherex2-decompiler-plugins --install 
+pip install patcherex2-decompiler-plugins && patcherex2-decompiler-plugins --install 
 ```
 
 ## Usage 
