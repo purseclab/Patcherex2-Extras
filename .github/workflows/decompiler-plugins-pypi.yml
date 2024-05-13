@@ -1,0 +1,42 @@
+on:
+  push:
+    tags:
+      - 'decompiler-plugins/*'
+
+jobs:
+  Publish:
+    name: Publish to PyPI
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+    steps:
+    - name: Checkout Repository
+      uses: actions/checkout@v4
+    - name: Set up Python 3
+      uses: actions/setup-python@v5
+      with:
+        python-version: "3.10"
+    - name: Install pypa/build
+      run: >-
+        python -m
+        pip install
+        build
+        --user
+    - name: Update version in pyproject.toml
+      working-directory: ${{ github.workspace }}/decompiler-plugins
+      run: |
+        version=$(echo "${{ github.ref_name }}" | sed 's:.*/::')
+        sed -i "s/^version = \".*\"/version = \"$version\"/" pyproject.toml
+    - name: Build a binary wheel and a source tarball
+      working-directory: ${{ github.workspace }}/decompiler-plugins
+      run: >-
+        python -m
+        build
+        --sdist
+        --wheel
+        --outdir dist/
+        .
+    - name: Publish to PyPI
+      uses: pypa/gh-action-pypi-publish@release/v1
+      with:
+        packages-dir: ${{ github.workspace }}/decompiler-plugins/dist
