@@ -1,8 +1,8 @@
 class Patcherex2Controller:
     def __init__(self, deci):
         self.deci = deci
+        self.target = "auto"
         self.patches = []
-        self.new_patch_type = ""
         self.new_patch_args = []
 
     def _init_ui_components(self):

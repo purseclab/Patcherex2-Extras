@@ -1,5 +1,7 @@
 from libbs.ui.qt_objects import (
+    QComboBox,
     QDialog,
+    QDialogButtonBox,
     QGroupBox,
     QHBoxLayout,
     QLabel,
@@ -14,18 +16,13 @@ from libbs.ui.qt_objects import (
 from libbs.ui.version import ui_version
 
 if ui_version == "PySide6":
-    from PySide6.QtWidgets import (
-        QButtonGroup,
-        QRadioButton,
-        QTextEdit,
-    )
+    from PySide6.QtWidgets import QTextEdit
 else:
-    from PyQt5.QtWidgets import (
-        QButtonGroup,
-        QRadioButton,
-        QTextEdit,
-    )
+    from PyQt5.QtWidgets import QTextEdit
 
+import logging
+
+import patcherex2
 from patcherex2 import (
     InsertDataPatch,
     InsertFunctionPatch,
@@ -39,6 +36,18 @@ from patcherex2 import (
     # RemoveFunctionPatch,
     RemoveInstructionPatch,
 )
+
+logging.getLogger("patcherex2").setLevel(logging.INFO)
+
+
+class QTextEditHandler(logging.Handler):
+    def __init__(self, text_edit):
+        super().__init__()
+        self.text_edit = text_edit
+
+    def emit(self, record):
+        log = self.format(record)
+        self.text_edit.append(log)
 
 
 class Patcherex2UIWorker(QObject):
@@ -97,73 +106,102 @@ class ControlPanel(QWidget):
         self.setLayout(self.main_layout)
 
     def patch_binary(self):
-        binary_path = self.controller.deci.binary_path
-        p = Patcherex(binary_path)
-        p.patches = [i.patch for i in self.controller.patches]
-        p.apply_patches()
-        p.binfmt_tool.save_binary(binary_path + "-patched")
+        log_widget = QTextEdit()
+        log_widget.setReadOnly(True)
+        log_widget.setLineWrapMode(QTextEdit.LineWrapMode.NoWrap)
+        log_widget.setFixedHeight(200)
+        log_widget.setFixedWidth(800)
+        log_widget.setWindowTitle("Patcherex2 Log")
+        log_widget.show()
+
+        handler = QTextEditHandler(log_widget)
+        handler.setFormatter(logging.Formatter("%(asctime)s - %(message)s"))
+        logging.getLogger("patcherex2").addHandler(handler)
+
+        try:
+            binary_path = self.controller.deci.binary_path
+            if self.controller.target == "auto":
+                p = Patcherex(binary_path)
+            else:
+                p = Patcherex(
+                    binary_path,
+                    target=getattr(patcherex2.targets, self.controller.target),
+                )
+            p.patches = [i.patch for i in self.controller.patches]
+            p.apply_patches()
+            p.binfmt_tool.save_binary(binary_path + "-patched")
+        except Exception as e:
+            logging.getLogger("patcherex2").error(e)
+            display_message(self.controller, "An error occurred while patching.")
+            return
         display_message(
             self.controller,
             "Binary patched! A new file with '-patched' appended has been made. Load it to see the changes.",
         )
 
     def add_patch(self):
-        dialog = PatchSelector(self.controller)
-        dialog.exec_()
+        dialog = PatchSelector()
+        if dialog.exec() != QDialog.Accepted:
+            return
+
+        patch_type = dialog.get_value()
 
         self.controller.new_patch_args = []
-        if self.controller.new_patch_type == "ModifyRawBytesPatch":
+
+        # check patch args and generate ui components for them
+
+        if patch_type == "ModifyRawBytesPatch":
             ask_for_address(self.controller)
             ask_for_bytes(self.controller)
             patch = ModifyRawBytesPatch(*self.controller.new_patch_args)
 
-        elif self.controller.new_patch_type == "ModifyDataPatch":
+        elif patch_type == "ModifyDataPatch":
             ask_for_address(self.controller)
             ask_for_bytes(self.controller)
             patch = ModifyDataPatch(*self.controller.new_patch_args)
 
-        elif self.controller.new_patch_type == "InsertDataPatch":
+        elif patch_type == "InsertDataPatch":
             ask_for_address_or_name(self.controller)
             ask_for_bytes(self.controller)
             patch = InsertDataPatch(*self.controller.new_patch_args)
 
-        elif self.controller.new_patch_type == "RemoveDataPatch":
+        elif patch_type == "RemoveDataPatch":
             ask_for_address(self.controller)
             ask_for_size(self.controller)
             patch = RemoveDataPatch(*self.controller.new_patch_args)
 
-        elif self.controller.new_patch_type == "ModifyFunctionPatch":
+        elif patch_type == "ModifyFunctionPatch":
             ask_for_address_or_name(self.controller)
             ask_for_code(self.controller)
             patch = ModifyFunctionPatch(*self.controller.new_patch_args)
 
-        elif self.controller.new_patch_type == "InsertFunctionPatch":
+        elif patch_type == "InsertFunctionPatch":
             ask_for_address_or_name(self.controller)
             ask_for_code(self.controller)
             patch = InsertFunctionPatch(*self.controller.new_patch_args)
 
-        elif self.controller.new_patch_type == "RemoveFunctionPatch":
+        elif patch_type == "RemoveFunctionPatch":
             display_message(self.controller, "Not Implemented")
             return
 
-        elif self.controller.new_patch_type == "ModifyInstructionPatch":
+        elif patch_type == "ModifyInstructionPatch":
             ask_for_address(self.controller)
             ask_for_instructions(self.controller)
             patch = ModifyInstructionPatch(*self.controller.new_patch_args)
 
-        elif self.controller.new_patch_type == "InsertInstructionPatch":
+        elif patch_type == "InsertInstructionPatch":
             ask_for_address_or_name(self.controller)
             ask_for_instructions(self.controller)
             patch = InsertInstructionPatch(*self.controller.new_patch_args)
 
-        elif self.controller.new_patch_type == "RemoveInstructionPatch":
+        elif patch_type == "RemoveInstructionPatch":
             ask_for_address(self.controller)
             ask_for_size(self.controller)
             patch = RemoveInstructionPatch(*self.controller.new_patch_args)
 
         ui_patch = UIPatch(
             self.controller,
-            self.controller.new_patch_type,
+            patch_type,
             patch,
             self.controller.new_patch_args,
             parent=self,
@@ -212,70 +250,63 @@ class ConfigurePatcherex2Dialog(QDialog):
         super().__init__(parent)
         self.controller = controller
 
-        self.setWindowTitle("Configure Patcherex2")
+        self.setWindowTitle("Configurations - Patcherex2")
         self.setMinimumSize(300, 250)
         self.main_layout = QVBoxLayout()
         self.main_layout.setAlignment(Qt.AlignCenter)
 
-        not_implemented = QLabel(self)
-        not_implemented.setText("This Section is Not Implemented")
-        ok_button = QPushButton(self)
-        ok_button.setText("Ok")
-        ok_button.clicked.connect(self.on_ok_clicked)
+        target_selection_text = QLabel(self)
+        target_selection_text.setText("Select Target:")
+        self.main_layout.addWidget(target_selection_text)
 
-        self.main_layout.addWidget(not_implemented)
-        self.main_layout.addWidget(ok_button)
+        target_selection_dropdown = QComboBox(self)
+        target_selection_dropdown.addItem("auto")
+        for target_name in patcherex2.targets.__all__:
+            if target_name == "Target":
+                continue
+            target_selection_dropdown.addItem(target_name)
+        target_selection_dropdown.setCurrentText(self.controller.target)
+        self.main_layout.addWidget(target_selection_dropdown)
+
+        save_button = QPushButton(self)
+        save_button.setText("Save")
+        save_button.clicked.connect(self.on_save_clicked)
+        self.main_layout.addWidget(save_button)
 
         self.setLayout(self.main_layout)
 
-    def on_ok_clicked(self):
+    def on_save_clicked(self):
+        self.controller.target = (
+            self.sender().parent().findChild(QComboBox).currentText()
+        )
         self.close()
 
 
 class PatchSelector(QDialog):
-    def __init__(self, controller, parent=None):
-        super().__init__(parent)
-        self.controller = controller
-        self.setWindowTitle("Patcherex2")
-        self.layout = QVBoxLayout()
+    def __init__(self):
+        super().__init__()
 
-        instructions = QLabel("Which Patch Would You Like to Add?")
-        self.layout.addWidget(instructions)
+        self.setWindowTitle("Add a New Patch - Patcherex2")
 
-        self.button_group = QButtonGroup(self)  # Group for mutually exclusive selection
+        layout = QVBoxLayout()
 
-        choices = [
-            "ModifyRawBytesPatch",
-            "ModifyDataPatch",
-            "InsertDataPatch",
-            "RemoveDataPatch",
-            "ModifyFunctionPatch",
-            "InsertFunctionPatch",
-            "RemoveFunctionPatch",
-            "ModifyInstructionPatch",
-            "InsertInstructionPatch",
-            "RemoveInstructionPatch",
-        ]
+        instructions = QLabel("Which type of patch would you like to add?")
+        layout.addWidget(instructions)
 
-        self.radio_buttons = []
-        for i, choice in enumerate(choices):
-            radio_button = QRadioButton(choice)
-            self.radio_buttons.append(radio_button)
-            self.button_group.addButton(radio_button, id=i)
-            self.layout.addWidget(radio_button)
+        self.patch_selector = QComboBox()
+        for patch in patcherex2.patches.__all__:
+            self.patch_selector.addItem(patch)
+        layout.addWidget(self.patch_selector)
 
-        self.radio_buttons[0].setChecked(True)
+        button_box = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
+        button_box.accepted.connect(self.accept)
+        button_box.rejected.connect(self.reject)
+        layout.addWidget(button_box)
 
-        confirm_button = QPushButton("Confirm")
-        confirm_button.clicked.connect(self.confirm_selection)
-        self.layout.addWidget(confirm_button)
+        self.setLayout(layout)
 
-        self.setLayout(self.layout)
-
-    def confirm_selection(self):
-        choice = self.button_group.checkedButton().text()
-        self.controller.new_patch_type = choice
-        self.close()
+    def get_value(self):
+        return self.patch_selector.currentText()
 
 
 class MultiLineDialog(QDialog):
