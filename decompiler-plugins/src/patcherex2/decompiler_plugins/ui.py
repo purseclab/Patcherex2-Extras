@@ -1,3 +1,6 @@
+import os
+import shlex
+
 from libbs.ui.qt_objects import (
     QCheckBox,
     QComboBox,
@@ -14,7 +17,6 @@ from libbs.ui.qt_objects import (
     QVBoxLayout,
     QWidget,
 )
-import shlex
 from libbs.ui.version import ui_version
 
 if ui_version == "PySide6":
@@ -194,6 +196,10 @@ class ControlPanel(QWidget):
             self.controller,
             "Binary patched! A new file with '-patched' appended has been made. Load it to see the changes.",
         )
+        dialog = LoadBinaryDialog()
+        if dialog.exec() == QDialog.Accepted:
+            # FIXME we need this feature but this is definitely not the right way to do it
+            os.system(f"angr-management {binary_path}-patched")
 
     def add_patch(self):
         dialog = PatchSelector()
@@ -405,6 +411,25 @@ class SingleLineDialog(QDialog):
     def confirm_selection(self):
         self.controller.new_patch_args.append(self.text_input.text())
         self.close()
+
+
+class LoadBinaryDialog(QDialog):
+    def __init__(self):
+        super().__init__()
+
+        self.setWindowTitle("Binary Patched - Patcherex2")
+
+        layout = QVBoxLayout()
+
+        instructions = QLabel("Would you like to load the patched binary?")
+        layout.addWidget(instructions)
+
+        button_box = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
+        button_box.accepted.connect(self.accept)
+        button_box.rejected.connect(self.reject)
+        layout.addWidget(button_box)
+
+        self.setLayout(layout)
 
 
 class AddUnusedSpaceDialog(QDialog):
