@@ -147,7 +147,7 @@ class ControlPanel(QWidget):
         else:
             script += f"from patcherex2.targets import {self.controller.target}\n"
             script += (
-                f"p = Patcherex('{binary_path}', target={self.controller.target})\n"
+                f"p = Patcherex('{binary_path}', target_cls={self.controller.target})\n"
             )
 
         for address, size in self.controller.manually_added_unused_space:
