@@ -226,7 +226,7 @@ class ControlPanel(QWidget):
         dialog = LoadBinaryDialog()
         if dialog.exec() == QDialog.Accepted:
             # FIXME we need this feature but this is definitely not the right way to do it
-            os.system(f"angr-management {binary_path}-patched")
+            os.system(f"angr-management {binary_path}-patched &")
 
     def add_patch(self):
         dialog = PatchSelector()
