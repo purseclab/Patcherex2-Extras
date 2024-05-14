@@ -1,5 +1,6 @@
 import os
 import shlex
+import subprocess
 
 from libbs.ui.qt_objects import (
     QCheckBox,
@@ -135,59 +136,82 @@ class ControlPanel(QWidget):
         dialog.exec_()
         self.update()
 
-    # def script_gen(self):
-    #     # TODO: messy code please help
-    #     # NOTE: do we care about arbitrary code execution at all?
-    #     binary_path = self.controller.deci.binary_path
+    def script_gen(self):
+        # TODO: messy code please help
+        # NOTE: do we care about arbitrary code execution at all?
+        binary_path = self.controller.deci.binary_path
 
-    #     script = "from patcherex2 import *\n"
-    #     if self.controller.target == "auto":
-    #         script += f"p = Patcherex({shlex.quote(binary_path)})\n"
-    #     else:
-    #         script += f"p = Patcherex({shlex.quote(binary_path)}, target=getattr(patcherex2.targets, {self.controller.target}))\n"
+        script = "from patcherex2 import *\n"
+        if self.controller.target == "auto":
+            script += f"p = Patcherex({shlex.quote(binary_path)})\n"
+        else:
+            script += f"p = Patcherex({shlex.quote(binary_path)}, target=getattr(patcherex2.targets, {self.controller.target}))\n"
 
-    #     for address, size in self.controller.manually_added_unused_space:
-    #         script += f"p.allocation_manager.add_free_space({address}, {size}, 'RX')\n"
+        for address, size in self.controller.manually_added_unused_space:
+            script += f"p.allocation_manager.add_free_space({address}, {size}, 'RX')\n"
 
-    #     if self.controller.find_unused_space:
-    #         script += "for func in p.binary_analyzer.get_unused_funcs():\n"
-    #         script += "    p.allocation_manager.add_free_space(func['addr'], func['size'], 'RX')\n"
+        if self.controller.find_unused_space:
+            script += "for func in p.binary_analyzer.get_unused_funcs():\n"
+            script += "    p.allocation_manager.add_free_space(func['addr'], func['size'], 'RX')\n"
 
-    #     for patch in self.controller.patches:
-    #         script += f"p.patches.append({patch.patch})\n"
+        for patch in self.controller.patches:
+            script += f"p.patches.append({patch.patch_name}({', '.join(map(repr, patch.patch_args))}))\n"
+
+        script += "p.apply_patches()\n"
+        script += f"p.save_binary({shlex.quote(binary_path + '-patched')})\n"
+
+        return script
 
     def patch_binary(self):
-        log_widget = QTextEdit()
-        log_widget.setReadOnly(True)
-        log_widget.setLineWrapMode(QTextEdit.LineWrapMode.NoWrap)
-        log_widget.setFixedHeight(200)
-        log_widget.setFixedWidth(800)
-        log_widget.setWindowTitle("Patcherex2 Log")
-        log_widget.show()
+        # log_widget = QTextEdit()
+        # log_widget.setReadOnly(True)
+        # log_widget.setLineWrapMode(QTextEdit.LineWrapMode.NoWrap)
+        # log_widget.setFixedHeight(200)
+        # log_widget.setFixedWidth(800)
+        # log_widget.setWindowTitle("Patcherex2 Log")
+        # log_widget.show()
 
-        handler = QTextEditHandler(log_widget)
-        handler.setFormatter(logging.Formatter("%(asctime)s - %(message)s"))
-        logging.getLogger("patcherex2").addHandler(handler)
+        # handler = QTextEditHandler(log_widget)
+        # handler.setFormatter(logging.Formatter("%(asctime)s - %(message)s"))
+        # logging.getLogger("patcherex2").addHandler(handler)
 
         try:
             binary_path = self.controller.deci.binary_path
-            if self.controller.target == "auto":
-                p = Patcherex(binary_path)
-            else:
-                p = Patcherex(
-                    binary_path,
-                    target=getattr(patcherex2.targets, self.controller.target),
-                )
-            for address, size in self.controller.manually_added_unused_space:
-                p.allocation_manager.add_free_space(address, size, "RX")
-            if self.controller.find_unused_space:
-                for func in p.binary_analyzer.get_unused_funcs():
-                    p.allocation_manager.add_free_space(
-                        func["addr"], func["size"], "RX"
-                    )
-            p.patches = [i.patch for i in self.controller.patches]
-            p.apply_patches()
-            p.binfmt_tool.save_binary(binary_path + "-patched")
+            script = self.script_gen()
+            editor = PatchScriptEditor(script)
+            if editor.exec() != QDialog.Accepted:
+                return
+            script = editor.get_script()
+            with open(binary_path + "_generated_patch.py", "w") as f:
+                f.write(script)
+
+            # run the script, pipe the output to the log widget
+            p = subprocess.run(
+                ["python3", binary_path + "_generated_patch.py"],
+                # stdout=subprocess.PIPE,
+                # stderr=subprocess.STDOUT,
+                # text=True,
+                # check=True,
+            )
+            # log_widget.append(p.stdout)
+
+            # if self.controller.target == "auto":
+            #     p = Patcherex(binary_path)
+            # else:
+            #     p = Patcherex(
+            #         binary_path,
+            #         target=getattr(patcherex2.targets, self.controller.target),
+            #     )
+            # for address, size in self.controller.manually_added_unused_space:
+            #     p.allocation_manager.add_free_space(address, size, "RX")
+            # if self.controller.find_unused_space:
+            #     for func in p.binary_analyzer.get_unused_funcs():
+            #         p.allocation_manager.add_free_space(
+            #             func["addr"], func["size"], "RX"
+            #         )
+            # p.patches = [i.patch for i in self.controller.patches]
+            # p.apply_patches()
+            # p.save_binary(binary_path + "-patched")
         except Exception as e:
             logging.getLogger("patcherex2").error(e)
             display_message(self.controller, "An error occurred while patching.")
@@ -342,6 +366,25 @@ class ConfigurePatcherex2Dialog(QDialog):
             self.sender().parent().findChild(QComboBox).currentText()
         )
         self.close()
+
+
+class PatchScriptEditor(QDialog):
+    def __init__(self, text, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("Patcherex2 Script Editor")
+        layout = QVBoxLayout()
+        self.editor = QTextEdit()
+        self.editor.setPlainText(text)
+        layout.addWidget(self.editor)
+        self.setLayout(layout)
+
+        button_box = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
+        button_box.accepted.connect(self.accept)
+        button_box.rejected.connect(self.reject)
+        layout.addWidget(button_box)
+
+    def get_script(self):
+        return self.editor.toPlainText()
 
 
 class PatchSelector(QDialog):
