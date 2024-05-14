@@ -140,7 +140,7 @@ class ControlPanel(QWidget):
         self.setLayout(self.main_layout)
 
     def update_patch_script_editor_content(self):
-        self.patch_script_editor.setPlainText(self.script_gen())
+        self.patch_script_editor.setPlainText(self.script_gen().replace("\\\\x", "\\x"))
 
     def toggle_find_unused_space(self):
         self.controller.find_unused_space = not self.controller.find_unused_space
