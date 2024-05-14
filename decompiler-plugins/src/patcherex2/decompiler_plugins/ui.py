@@ -143,9 +143,9 @@ class ControlPanel(QWidget):
 
         script = "from patcherex2 import *\n"
         if self.controller.target == "auto":
-            script += f"p = Patcherex({shlex.quote(binary_path)})\n"
+            script += f"p = Patcherex('{binary_path}')\n"
         else:
-            script += f"p = Patcherex({shlex.quote(binary_path)}, target=getattr(patcherex2.targets, {self.controller.target}))\n"
+            script += f"p = Patcherex('{binary_path}', target=getattr(patcherex2.targets, {self.controller.target}))\n"
 
         for address, size in self.controller.manually_added_unused_space:
             script += f"p.allocation_manager.add_free_space({address}, {size}, 'RX')\n"
@@ -158,7 +158,7 @@ class ControlPanel(QWidget):
             script += f"p.patches.append({patch.patch_name}({', '.join(map(repr, patch.patch_args))}))\n"
 
         script += "p.apply_patches()\n"
-        script += f"p.save_binary({shlex.quote(binary_path + '-patched')})\n"
+        script += f"p.save_binary('{binary_path + '-patched'}')\n"
 
         return script
 
