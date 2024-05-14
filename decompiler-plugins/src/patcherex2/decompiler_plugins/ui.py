@@ -202,7 +202,7 @@ class ControlPanel(QWidget):
             script = self.patch_script_editor.toPlainText()
 
             with open(binary_path + "_generated_patch.py", "w") as f:
-                f.write(script)
+                f.write(script.replace("\\\\x", "\\x"))
 
             # run the script, pipe the output to the log widget
             p = subprocess.run(
