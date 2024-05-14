@@ -1,4 +1,5 @@
 from libbs.ui.qt_objects import (
+    QCheckBox,
     QComboBox,
     QDialog,
     QDialogButtonBox,
@@ -13,6 +14,7 @@ from libbs.ui.qt_objects import (
     QVBoxLayout,
     QWidget,
 )
+import shlex
 from libbs.ui.version import ui_version
 
 if ui_version == "PySide6":
@@ -72,9 +74,28 @@ class ControlPanel(QWidget):
         self.controller = controller
         self.main_layout = QVBoxLayout()
 
-        added_patches = QLabel()
-        added_patches.setText("Added Patches:")
-        added_patches.setAlignment(Qt.AlignCenter)
+        # Options
+        options_label = QLabel()
+        options_label.setText("Options:")
+        self.main_layout.addWidget(options_label)
+
+        # Automatically find unused space checkbox
+        find_unused_space_checkbox = QCheckBox()
+        find_unused_space_checkbox.setText("Automatically Find Unused Space")
+        find_unused_space_checkbox.setChecked(self.controller.find_unused_space)
+        find_unused_space_checkbox.stateChanged.connect(self.toggle_find_unused_space)
+        self.main_layout.addWidget(find_unused_space_checkbox)
+
+        # Add unused space button
+        unused_space_button = QPushButton()
+        unused_space_button.setText("Add Unused Space Manually")
+        unused_space_button.clicked.connect(self.add_unused_space)
+        self.main_layout.addWidget(unused_space_button)
+
+        # Patches
+        patches_label = QLabel()
+        patches_label.setText("Added Patches:")
+        self.main_layout.addWidget(patches_label)
 
         self.patch_layout = QVBoxLayout()
         self.patch_layout.setAlignment(Qt.AlignCenter)
@@ -99,11 +120,39 @@ class ControlPanel(QWidget):
         bottom_layout.addWidget(add_patch)
         bottom_layout.addWidget(patch_binary)
 
-        self.main_layout.addWidget(added_patches)
         self.main_layout.addWidget(scroll_area)
         self.main_layout.addLayout(bottom_layout)
 
         self.setLayout(self.main_layout)
+
+    def toggle_find_unused_space(self):
+        self.controller.find_unused_space = not self.controller.find_unused_space
+
+    def add_unused_space(self):
+        dialog = AddUnusedSpaceDialog(self.controller)
+        dialog.exec_()
+        self.update()
+
+    # def script_gen(self):
+    #     # TODO: messy code please help
+    #     # NOTE: do we care about arbitrary code execution at all?
+    #     binary_path = self.controller.deci.binary_path
+
+    #     script = "from patcherex2 import *\n"
+    #     if self.controller.target == "auto":
+    #         script += f"p = Patcherex({shlex.quote(binary_path)})\n"
+    #     else:
+    #         script += f"p = Patcherex({shlex.quote(binary_path)}, target=getattr(patcherex2.targets, {self.controller.target}))\n"
+
+    #     for address, size in self.controller.manually_added_unused_space:
+    #         script += f"p.allocation_manager.add_free_space({address}, {size}, 'RX')\n"
+
+    #     if self.controller.find_unused_space:
+    #         script += "for func in p.binary_analyzer.get_unused_funcs():\n"
+    #         script += "    p.allocation_manager.add_free_space(func['addr'], func['size'], 'RX')\n"
+
+    #     for patch in self.controller.patches:
+    #         script += f"p.patches.append({patch.patch})\n"
 
     def patch_binary(self):
         log_widget = QTextEdit()
@@ -127,6 +176,13 @@ class ControlPanel(QWidget):
                     binary_path,
                     target=getattr(patcherex2.targets, self.controller.target),
                 )
+            for address, size in self.controller.manually_added_unused_space:
+                p.allocation_manager.add_free_space(address, size, "RX")
+            if self.controller.find_unused_space:
+                for func in p.binary_analyzer.get_unused_funcs():
+                    p.allocation_manager.add_free_space(
+                        func["addr"], func["size"], "RX"
+                    )
             p.patches = [i.patch for i in self.controller.patches]
             p.apply_patches()
             p.binfmt_tool.save_binary(binary_path + "-patched")
@@ -348,6 +404,39 @@ class SingleLineDialog(QDialog):
 
     def confirm_selection(self):
         self.controller.new_patch_args.append(self.text_input.text())
+        self.close()
+
+
+class AddUnusedSpaceDialog(QDialog):
+    def __init__(self, controller, parent=None):
+        super().__init__(parent)
+        self.controller = controller
+        self.setWindowTitle("Patcherex2")
+        layout = QVBoxLayout()
+
+        label = QLabel("Please enter the address and size of the unused space.")
+        layout.addWidget(label)
+
+        address_label = QLabel("Address:")
+        self.address_input = QLineEdit()
+        layout.addWidget(address_label)
+        layout.addWidget(self.address_input)
+
+        size_label = QLabel("Size:")
+        self.size_input = QLineEdit()
+        layout.addWidget(size_label)
+        layout.addWidget(self.size_input)
+
+        confirm_button = QPushButton("Confirm")
+        confirm_button.clicked.connect(self.confirm_selection)
+        layout.addWidget(confirm_button)
+
+        self.setLayout(layout)
+
+    def confirm_selection(self):
+        address = int(self.address_input.text(), 0)
+        size = int(self.size_input.text(), 0)
+        self.controller.manually_added_unused_space.append((address, size))
         self.close()
 
 

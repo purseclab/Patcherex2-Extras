@@ -3,6 +3,8 @@ class Patcherex2Controller:
         self.deci = deci
         self.target = "auto"
         self.patches = []
+        self.find_unused_space = False
+        self.manually_added_unused_space = []
         self.new_patch_args = []
 
     def _init_ui_components(self):
