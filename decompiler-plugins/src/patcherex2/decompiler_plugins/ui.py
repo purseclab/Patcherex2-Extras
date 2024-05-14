@@ -117,16 +117,30 @@ class ControlPanel(QWidget):
         add_patch = QPushButton()
         add_patch.setText("Add a New Patch")
         add_patch.clicked.connect(self.add_patch)
+        regen_script = QPushButton()
+        regen_script.setText("Regenerate Patch Script")
+        regen_script.clicked.connect(self.update_patch_script_editor_content)
         patch_binary = QPushButton()
         patch_binary.setText("Patch Binary")
         patch_binary.clicked.connect(self.patch_binary)
+
         bottom_layout.addWidget(add_patch)
+        bottom_layout.addWidget(regen_script)
         bottom_layout.addWidget(patch_binary)
 
         self.main_layout.addWidget(scroll_area)
+
+        # patch script text editor
+        self.patch_script_editor = QTextEdit()
+        self.patch_script_editor.setPlainText("")
+        self.main_layout.addWidget(self.patch_script_editor)
+
         self.main_layout.addLayout(bottom_layout)
 
         self.setLayout(self.main_layout)
+
+    def update_patch_script_editor_content(self):
+        self.patch_script_editor.setPlainText(self.script_gen())
 
     def toggle_find_unused_space(self):
         self.controller.find_unused_space = not self.controller.find_unused_space
@@ -158,7 +172,7 @@ class ControlPanel(QWidget):
             script += "    p.allocation_manager.add_free_space(func['addr'], func['size'], 'RX')\n"
 
         for patch in self.controller.patches:
-            script += f"p.patches.append({patch.patch_name}({', '.join(map(repr, patch.patch_args))}))\n"
+            script += f"p.patches.append({patch.patch_name}({', '.join(map(repr, patch.patch_args))}))\n\n"
 
         script += "p.apply_patches()\n"
         script += f"p.save_binary('{binary_path + '-patched'}')\n"
@@ -180,11 +194,13 @@ class ControlPanel(QWidget):
 
         try:
             binary_path = self.controller.deci.binary_path
-            script = self.script_gen()
-            editor = PatchScriptEditor(script)
-            if editor.exec() != QDialog.Accepted:
-                return
-            script = editor.get_script()
+            # script = self.script_gen()
+            # editor = PatchScriptEditor(script)
+            # if editor.exec() != QDialog.Accepted:
+            #     return
+            # script = editor.get_script()
+            script = self.patch_script_editor.toPlainText()
+
             with open(binary_path + "_generated_patch.py", "w") as f:
                 f.write(script)
 
