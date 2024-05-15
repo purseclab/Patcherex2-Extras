@@ -5,4 +5,3 @@ class Patcherex2Controller:
         self.patches = []
         self.find_unused_space = False
         self.manually_added_unused_space = []
-        self.new_patch_args = []

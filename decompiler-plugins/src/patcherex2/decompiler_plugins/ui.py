@@ -13,6 +13,7 @@ from libbs.ui.qt_objects import (
     QHeaderView,
     QLabel,
     QLineEdit,
+    QMessageBox,
     QPushButton,
     Qt,
     QTableWidget,
@@ -104,8 +105,14 @@ class ControlPanel(QWidget):
         )
         remove_button = QPushButton("Remove")
         remove_button.clicked.connect(self.remove_patch)
+        edit_button = QPushButton("Edit")
+        edit_button.clicked.connect(self.edit_patch)
+        buttons_widget = QWidget()
+        buttons_layout = QHBoxLayout(buttons_widget)
+        buttons_layout.addWidget(edit_button)
+        buttons_layout.addWidget(remove_button)
         self.patch_table.setCellWidget(
-            self.patch_table.rowCount() - 1, 2, remove_button
+            self.patch_table.rowCount() - 1, 2, buttons_widget
         )
 
     def remove_patch(self):
@@ -114,12 +121,27 @@ class ControlPanel(QWidget):
         self.patch_table.removeRow(row)
         self.controller.patches.pop(row)
 
+    def edit_patch(self):
+        # it should pop up a pre-filled PatchCreateDialog with the current values
+        # and then update the patch in the controller and the table
+        button = self.sender()
+        row = self.patch_table.indexAt(button.pos()).row()
+        patch_type = self.patch_table.cellWidget(row, 0).text()
+        patch_args = self.controller.patches[row][1]
+        dialog = PatchCreateDialog(patch_type, patch_args)
+        dialog.exec_()
+        new_patch_args = dialog.get_values()
+        self.controller.patches[row] = (patch_type, new_patch_args)
+        arg_str = ", ".join([f"{k}={v}" for k, v in new_patch_args.items()])
+        self.patch_table.cellWidget(row, 1).setText(arg_str)
+
     def add_patch_script_editor(self):
         script_editor_layout = QVBoxLayout()
         script_editor_group = QGroupBox("Patch Script Editor")
         script_editor_group.setLayout(script_editor_layout)
 
         script_editor = QTextEdit()
+        script_editor.setPlaceholderText("Patch script will be generated here.")
         script_editor_layout.addWidget(script_editor)
 
         self.main_layout.addWidget(script_editor_group)
@@ -142,7 +164,7 @@ class ControlPanel(QWidget):
         self.main_layout.addLayout(bottom_layout)
 
     def regen_patch_script(self):
-        self.script_editor.setText(self.script_gen())
+        self.script_editor.setPlainText(self.script_gen())
 
     def toggle_reuse_unused_funcs(self):
         self.controller.find_unused_space = not self.controller.find_unused_space
@@ -174,9 +196,7 @@ class ControlPanel(QWidget):
             script += "    p.allocation_manager.add_free_space(func['addr'], func['size'], 'RX')\n"
 
         for patch in self.controller.patches:
-            script += (
-                f"p.patches.append({patch[0]}({', '.join(map(repr, patch[1]))}))\n\n"
-            )
+            script += f"p.patches.append({patch[0]}({', '.join([f'{k}={repr(v)}' for k, v in patch[1].items()])}))\n"
 
         script += "p.apply_patches()\n"
         script += f"p.save_binary('{binary_path + '-patched'}')\n"
@@ -186,18 +206,18 @@ class ControlPanel(QWidget):
     def patch_binary(self):
         try:
             binary_path = self.controller.deci.binary_path
-            script = self.patch_script_editor.toPlainText()
+            script = self.script_editor.toPlainText()
 
             with open(binary_path + "_generated_patch.py", "w") as f:
                 f.write(script)
 
-            # run the script, pipe the output to the log widget
+            # TODO: pipe the output to the log widget
             subprocess.run(["python3", binary_path + "_generated_patch.py"])
         except Exception as e:
             logging.getLogger("patcherex2").error(e)
-            MessageDialog(self.controller, "An error occurred while patching.").exec()
+            QMessageBox.critical(None, "Error", f"Failed to patch binary: {e}")
             return
-        MessageDialog(self.controller, "Binary patched!").exec()
+        QMessageBox.information(None, "Success", "Binary patched!")
         dialog = LoadBinaryDialog()
         if dialog.exec() == QDialog.Accepted:
             # FIXME we need this feature but this is definitely not the right way to do it
@@ -219,15 +239,39 @@ class ControlPanel(QWidget):
 
 
 class PatchCreateDialog(QDialog):
-    def __init__(self, patch_type: str):
+    def __init__(self, patch_type: str, prefill_values=None):
         super().__init__()
+
+        self.prefill_values = prefill_values or {}
 
         self.setWindowTitle(f"Create a new {patch_type} patch - Patcherex2")
         self.main_layout = QVBoxLayout()
-        # TODO: check Patch __init__ signature and create input fields accordingly
+        # TODO: check Patch __init__ signature using `inspect` and create input fields accordingly
+        # but note that some params are optional, some are mutually exclusive, etc.
         if patch_type == "ModifyDataPatch":
             self.add_input("addr", "int")
             self.add_input("new_bytes", "bytes")
+        elif patch_type == "InsertDataPatch":
+            self.add_input("addr_or_name", "int | str")
+            self.add_input("data", "bytes")
+        elif patch_type == "RemoveDataPatch":
+            self.add_input("addr", "int")
+            self.add_input("size", "int")
+        elif patch_type == "ModifyInstructionPatch":
+            self.add_input("addr", "int")
+            self.add_input("instr", "str")
+        elif patch_type == "InsertInstructionPatch":
+            self.add_input("addr_or_name", "int | str")
+            self.add_input("instr", "str")
+        elif patch_type == "RemoveInstructionPatch":
+            self.add_input("addr", "int")
+            self.add_input("num_instr", "int")
+        elif patch_type == "ModifyFunctionPatch":
+            self.add_input("addr_or_name", "int | str")
+            self.add_input("code", "str")
+        elif patch_type == "InsertFunctionPatch":
+            self.add_input("addr_or_name", "int | str")
+            self.add_input("code", "str")
 
         self.confirm_button = QPushButton("Confirm")
         self.confirm_button.clicked.connect(self.accept)
@@ -242,33 +286,49 @@ class PatchCreateDialog(QDialog):
             if isinstance(layout, QHBoxLayout):
                 input_ = layout.itemAt(1).widget()
                 name = input_.objectName()
-                if isinstance(input_, QLineEdit):
-                    values[name] = int(input_.text(), 0)
+                if isinstance(input_, (AddressOrNameEdit, BytesEdit)):
+                    values[name] = input_.get_value()
                 elif isinstance(input_, QTextEdit):
                     values[name] = input_.toPlainText()
+                elif isinstance(input_, QLineEdit):
+                    values[name] = int(input_.text(), 0)
+                else:
+                    QMessageBox.critical(
+                        None, "Error", f"Unknown input type: {type(input_)}"
+                    )
         return values
 
     def add_input(self, name, type_):
         layout = QHBoxLayout()
+        layout.addWidget(QLabel(f"{name}:"))
         if type_ == "int":
-            layout.addWidget(QLabel(f"{name}:"))
-            input_ = QLineEdit()
-            input_.setObjectName(name)
-            layout.addWidget(input_)
+            input_ = QLineEdit(self.prefill_values.get(name, ""))
+        if type_ == "int | str":
+            input_ = AddressOrNameEdit(self.prefill_values.get(name, ""))
         elif type_ == "str":
-            layout.addWidget(QLabel(f"{name}:"))
-            input_ = QTextEdit()
-            layout.addWidget(input_)
+            input_ = QTextEdit(self.prefill_values.get(name, ""))
         elif type_ == "bytes":
-            layout.addWidget(QLabel(f"{name}:"))
-            input_ = QTextEdit()
-            layout.addWidget(input_)
+            input_ = BytesEdit(self.prefill_values.get(name, ""))
         else:
-            layout.addWidget(QLabel(f"{name}:"))
-            input_ = QLineEdit()
-            layout.addWidget(input_)
+            input_ = QLineEdit(self.prefill_values.get(name, ""))
+
+        input_.setObjectName(name)
+        layout.addWidget(input_)
 
         self.main_layout.addLayout(layout)
+
+
+class AddressOrNameEdit(QLineEdit):
+    def get_value(self):
+        try:
+            return int(self.text(), 0)
+        except ValueError:
+            return self.text()
+
+
+class BytesEdit(QTextEdit):
+    def get_value(self):
+        return self.toPlainText().encode()
 
 
 class ConfigurePatcherex2Dialog(QDialog):
@@ -281,8 +341,7 @@ class ConfigurePatcherex2Dialog(QDialog):
         self.main_layout = QVBoxLayout()
         self.main_layout.setAlignment(Qt.AlignCenter)
 
-        target_selection_text = QLabel(self)
-        target_selection_text.setText("Select Target:")
+        target_selection_text = QLabel("Select Target:")
         self.main_layout.addWidget(target_selection_text)
 
         target_selection_dropdown = QComboBox(self)
@@ -294,8 +353,7 @@ class ConfigurePatcherex2Dialog(QDialog):
         target_selection_dropdown.setCurrentText(self.controller.target)
         self.main_layout.addWidget(target_selection_dropdown)
 
-        save_button = QPushButton(self)
-        save_button.setText("Save")
+        save_button = QPushButton("Save")
         save_button.clicked.connect(self.on_save_clicked)
         self.main_layout.addWidget(save_button)
 
@@ -384,22 +442,4 @@ class AddUnusedSpaceDialog(QDialog):
         address = int(self.address_input.text(), 0)
         size = int(self.size_input.text(), 0)
         self.controller.manually_added_unused_space.append((address, size))
-        self.close()
-
-
-class MessageDialog(QDialog):
-    def __init__(self, controller, message, parent=None):
-        super().__init__(parent)
-        self.controller = controller
-        self.setWindowTitle("Patcherex2")
-        layout = QVBoxLayout()
-        message = QLabel(message)
-        confirm_button = QPushButton("Ok")
-        confirm_button.clicked.connect(self.confirm_selection)
-
-        layout.addWidget(message)
-        layout.addWidget(confirm_button)
-        self.setLayout(layout)
-
-    def confirm_selection(self):
         self.close()
