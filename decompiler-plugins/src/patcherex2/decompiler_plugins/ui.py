@@ -233,6 +233,7 @@ class ControlPanel(QWidget):
             # p.save_binary(binary_path + "-patched")
         except Exception as e:
             logging.getLogger("patcherex2").error(e)
+            self.controller.deci.print(e)
             display_message(self.controller, "An error occurred while patching.")
             return
         display_message(
