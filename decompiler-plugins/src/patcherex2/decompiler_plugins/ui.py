@@ -199,7 +199,7 @@ class ControlPanel(QWidget):
             script += f"p.patches.append({patch[0]}({', '.join([f'{k}={repr(v)}' for k, v in patch[1].items()])}))\n"
 
         script += "p.apply_patches()\n"
-        script += f"p.save_binary('{binary_path + '-patched'}')\n"
+        script += "p.save_binary()\n"
 
         return script
 
@@ -209,7 +209,7 @@ class ControlPanel(QWidget):
             script = self.script_editor.toPlainText()
 
             with open(binary_path + "_generated_patch.py", "w") as f:
-                f.write(script)
+                f.write(script.replace("\\\\x", "\\x"))
 
             # TODO: pipe the output to the log widget
             subprocess.run(["python3", binary_path + "_generated_patch.py"])
@@ -221,7 +221,7 @@ class ControlPanel(QWidget):
         dialog = LoadBinaryDialog()
         if dialog.exec() == QDialog.Accepted:
             # FIXME we need this feature but this is definitely not the right way to do it
-            os.system(f"angr-management {binary_path}-patched &")
+            os.system(f"angr-management {binary_path}.patched &")
 
     def add_patch(self):
         dialog = PatchSelector()
