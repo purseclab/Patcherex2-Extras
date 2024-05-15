@@ -1,20 +1,21 @@
 import os
-import shlex
 import subprocess
 
 from libbs.ui.qt_objects import (
+    QAbstractItemView,
     QCheckBox,
     QComboBox,
     QDialog,
     QDialogButtonBox,
+    QGridLayout,
     QGroupBox,
     QHBoxLayout,
+    QHeaderView,
     QLabel,
     QLineEdit,
-    QObject,
     QPushButton,
-    QScrollArea,
     Qt,
+    QTableWidget,
     QVBoxLayout,
     QWidget,
 )
@@ -28,47 +29,8 @@ else:
 import logging
 
 import patcherex2
-from patcherex2 import (
-    InsertDataPatch,
-    InsertFunctionPatch,
-    InsertInstructionPatch,
-    ModifyDataPatch,
-    ModifyFunctionPatch,
-    ModifyInstructionPatch,
-    ModifyRawBytesPatch,
-    Patcherex,
-    RemoveDataPatch,
-    # RemoveFunctionPatch,
-    RemoveInstructionPatch,
-)
 
 logging.getLogger("patcherex2").setLevel(logging.INFO)
-
-
-class QTextEditHandler(logging.Handler):
-    def __init__(self, text_edit):
-        super().__init__()
-        self.text_edit = text_edit
-
-    def emit(self, record):
-        log = self.format(record)
-        self.text_edit.append(log)
-
-
-class Patcherex2UIWorker(QObject):
-    def __init__(self):
-        QObject.__init__(self)
-
-    def run(self):
-        dialog = Patcherex2Dialog()
-        dialog.exec_()
-
-
-class Patcherex2Dialog(QDialog):
-    def __init__(self, controller, parent):
-        super().__init__(self, parent=parent)
-        self.controller = controller
-        self.setWindowTitle("test")
 
 
 class ControlPanel(QWidget):
@@ -77,72 +39,112 @@ class ControlPanel(QWidget):
         self.controller = controller
         self.main_layout = QVBoxLayout()
 
-        # Options
-        options_label = QLabel()
-        options_label.setText("Options:")
-        self.main_layout.addWidget(options_label)
+        self.add_options()
+        self.add_patch_list()
+        self.add_patch_script_editor()
+        self.add_bottom_buttons()
+
+        self.setLayout(self.main_layout)
+
+    def add_options(self):
+        options_layout = QGridLayout()
+        options_group = QGroupBox("Options")
+        options_group.setLayout(options_layout)
 
         # Automatically find unused space checkbox
-        find_unused_space_checkbox = QCheckBox()
-        find_unused_space_checkbox.setText("Automatically Find Unused Space")
-        find_unused_space_checkbox.setChecked(self.controller.find_unused_space)
-        find_unused_space_checkbox.stateChanged.connect(self.toggle_find_unused_space)
-        self.main_layout.addWidget(find_unused_space_checkbox)
+        unused_space_checkbox = QCheckBox("Reuse Unused Functions")
+        unused_space_checkbox.setToolTip(
+            "Automatically find unused functions and mark them as free space."
+        )
+        unused_space_checkbox.setChecked(self.controller.find_unused_space)
+        unused_space_checkbox.stateChanged.connect(self.toggle_reuse_unused_funcs)
+        options_layout.addWidget(unused_space_checkbox, 0, 0)
 
         # Add unused space button
-        unused_space_button = QPushButton()
-        unused_space_button.setText("Add Unused Space Manually")
+        unused_space_button = QPushButton("Add Unused Space Manually")
         unused_space_button.clicked.connect(self.add_unused_space)
-        self.main_layout.addWidget(unused_space_button)
+        options_layout.addWidget(unused_space_button, 1, 0)
 
-        # Patches
-        patches_label = QLabel()
-        patches_label.setText("Added Patches:")
-        self.main_layout.addWidget(patches_label)
+        self.main_layout.addWidget(options_group)
 
-        self.patch_layout = QVBoxLayout()
-        self.patch_layout.setAlignment(Qt.AlignCenter)
+    def add_patch_list(self):
+        patch_table = QTableWidget()
+        patch_table.setColumnCount(3)
+        patch_table.setHorizontalHeaderLabels(["Patch Type", "Arguments", "Actions"])
+        patch_table.horizontalHeader().setSectionResizeMode(
+            QHeaderView.ResizeToContents
+        )
+        patch_table.horizontalHeader().setSectionResizeMode(1, QHeaderView.Stretch)
+        patch_table.horizontalHeader().setSectionResizeMode(
+            2, QHeaderView.ResizeToContents
+        )
+        patch_table.verticalHeader().setVisible(False)
+        patch_table.setEditTriggers(QAbstractItemView.NoEditTriggers)
 
-        for i in self.controller.patches:
-            self.add_patch(i)
+        patch_group = QGroupBox("Patches")
+        patch_layout = QVBoxLayout()
+        patch_group.setLayout(patch_layout)
+        patch_layout.addWidget(patch_table)
 
-        group_box = QGroupBox()
-        group_box.setLayout(self.patch_layout)
-        scroll_area = QScrollArea()
-        scroll_area.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOn)
-        scroll_area.setWidget(group_box)
-        scroll_area.setWidgetResizable(True)
-        scroll_area.setFixedHeight(350)
+        self.main_layout.addWidget(patch_group)
+
+        self.patch_table = patch_table
+
+        for patch in self.controller.patches:
+            self.add_patch_list_row(patch[0], patch[1])
+
+    def add_patch_list_row(self, patch_type, patch_args):
+        self.patch_table.insertRow(self.patch_table.rowCount())
+        self.patch_table.setCellWidget(
+            self.patch_table.rowCount() - 1, 0, QLabel(patch_type)
+        )
+        arg_str = ", ".join([f"{k}={v}" for k, v in patch_args.items()])
+        self.patch_table.setCellWidget(
+            self.patch_table.rowCount() - 1, 1, QLabel(arg_str)
+        )
+        remove_button = QPushButton("Remove")
+        remove_button.clicked.connect(self.remove_patch)
+        self.patch_table.setCellWidget(
+            self.patch_table.rowCount() - 1, 2, remove_button
+        )
+
+    def remove_patch(self):
+        button = self.sender()
+        row = self.patch_table.indexAt(button.pos()).row()
+        self.patch_table.removeRow(row)
+        self.controller.patches.pop(row)
+
+    def add_patch_script_editor(self):
+        script_editor_layout = QVBoxLayout()
+        script_editor_group = QGroupBox("Patch Script Editor")
+        script_editor_group.setLayout(script_editor_layout)
+
+        script_editor = QTextEdit()
+        script_editor_layout.addWidget(script_editor)
+
+        self.main_layout.addWidget(script_editor_group)
+
+        self.script_editor = script_editor
+
+    def add_bottom_buttons(self):
         bottom_layout = QHBoxLayout()
-        add_patch = QPushButton()
-        add_patch.setText("Add a New Patch")
+        add_patch = QPushButton("Add a New Patch")
         add_patch.clicked.connect(self.add_patch)
-        regen_script = QPushButton()
-        regen_script.setText("Regenerate Patch Script")
-        regen_script.clicked.connect(self.update_patch_script_editor_content)
-        patch_binary = QPushButton()
-        patch_binary.setText("Patch Binary")
+        regen_script = QPushButton("Regenerate Patch Script")
+        regen_script.clicked.connect(self.regen_patch_script)
+        patch_binary = QPushButton("Patch Binary")
         patch_binary.clicked.connect(self.patch_binary)
 
         bottom_layout.addWidget(add_patch)
         bottom_layout.addWidget(regen_script)
         bottom_layout.addWidget(patch_binary)
 
-        self.main_layout.addWidget(scroll_area)
-
-        # patch script text editor
-        self.patch_script_editor = QTextEdit()
-        self.patch_script_editor.setPlainText("")
-        self.main_layout.addWidget(self.patch_script_editor)
-
         self.main_layout.addLayout(bottom_layout)
 
-        self.setLayout(self.main_layout)
+    def regen_patch_script(self):
+        self.script_editor.setText(self.script_gen())
 
-    def update_patch_script_editor_content(self):
-        self.patch_script_editor.setPlainText(self.script_gen())
-
-    def toggle_find_unused_space(self):
+    def toggle_reuse_unused_funcs(self):
         self.controller.find_unused_space = not self.controller.find_unused_space
 
     def add_unused_space(self):
@@ -172,7 +174,9 @@ class ControlPanel(QWidget):
             script += "    p.allocation_manager.add_free_space(func['addr'], func['size'], 'RX')\n"
 
         for patch in self.controller.patches:
-            script += f"p.patches.append({patch.patch_name}({', '.join(map(repr, patch.patch_args))}))\n\n"
+            script += (
+                f"p.patches.append({patch[0]}({', '.join(map(repr, patch[1]))}))\n\n"
+            )
 
         script += "p.apply_patches()\n"
         script += f"p.save_binary('{binary_path + '-patched'}')\n"
@@ -180,65 +184,20 @@ class ControlPanel(QWidget):
         return script
 
     def patch_binary(self):
-        # log_widget = QTextEdit()
-        # log_widget.setReadOnly(True)
-        # log_widget.setLineWrapMode(QTextEdit.LineWrapMode.NoWrap)
-        # log_widget.setFixedHeight(200)
-        # log_widget.setFixedWidth(800)
-        # log_widget.setWindowTitle("Patcherex2 Log")
-        # log_widget.show()
-
-        # handler = QTextEditHandler(log_widget)
-        # handler.setFormatter(logging.Formatter("%(asctime)s - %(message)s"))
-        # logging.getLogger("patcherex2").addHandler(handler)
-
         try:
             binary_path = self.controller.deci.binary_path
-            # script = self.script_gen()
-            # editor = PatchScriptEditor(script)
-            # if editor.exec() != QDialog.Accepted:
-            #     return
-            # script = editor.get_script()
             script = self.patch_script_editor.toPlainText()
 
             with open(binary_path + "_generated_patch.py", "w") as f:
                 f.write(script)
 
             # run the script, pipe the output to the log widget
-            p = subprocess.run(
-                ["python3", binary_path + "_generated_patch.py"],
-                # stdout=subprocess.PIPE,
-                # stderr=subprocess.STDOUT,
-                # text=True,
-                # check=True,
-            )
-            # log_widget.append(p.stdout)
-
-            # if self.controller.target == "auto":
-            #     p = Patcherex(binary_path)
-            # else:
-            #     p = Patcherex(
-            #         binary_path,
-            #         target=getattr(patcherex2.targets, self.controller.target),
-            #     )
-            # for address, size in self.controller.manually_added_unused_space:
-            #     p.allocation_manager.add_free_space(address, size, "RX")
-            # if self.controller.find_unused_space:
-            #     for func in p.binary_analyzer.get_unused_funcs():
-            #         p.allocation_manager.add_free_space(
-            #             func["addr"], func["size"], "RX"
-            #         )
-            # p.patches = [i.patch for i in self.controller.patches]
-            # p.apply_patches()
-            # p.save_binary(binary_path + "-patched")
+            subprocess.run(["python3", binary_path + "_generated_patch.py"])
         except Exception as e:
             logging.getLogger("patcherex2").error(e)
-            display_message(self.controller, "An error occurred while patching.")
+            MessageDialog(self.controller, "An error occurred while patching.").exec()
             return
-        display_message(
-            self.controller,
-            "Binary patched! A new file with '-patched' appended has been made. Load it to see the changes.",
-        )
+        MessageDialog(self.controller, "Binary patched!").exec()
         dialog = LoadBinaryDialog()
         if dialog.exec() == QDialog.Accepted:
             # FIXME we need this feature but this is definitely not the right way to do it
@@ -250,104 +209,66 @@ class ControlPanel(QWidget):
             return
 
         patch_type = dialog.get_value()
-
-        self.controller.new_patch_args = []
-
-        # check patch args and generate ui components for them
-
-        if patch_type == "ModifyRawBytesPatch":
-            ask_for_address(self.controller)
-            ask_for_bytes(self.controller)
-            patch = ModifyRawBytesPatch(*self.controller.new_patch_args)
-
-        elif patch_type == "ModifyDataPatch":
-            ask_for_address(self.controller)
-            ask_for_bytes(self.controller)
-            patch = ModifyDataPatch(*self.controller.new_patch_args)
-
-        elif patch_type == "InsertDataPatch":
-            ask_for_address_or_name(self.controller)
-            ask_for_bytes(self.controller)
-            patch = InsertDataPatch(*self.controller.new_patch_args)
-
-        elif patch_type == "RemoveDataPatch":
-            ask_for_address(self.controller)
-            ask_for_size(self.controller)
-            patch = RemoveDataPatch(*self.controller.new_patch_args)
-
-        elif patch_type == "ModifyFunctionPatch":
-            ask_for_address_or_name(self.controller)
-            ask_for_code(self.controller)
-            patch = ModifyFunctionPatch(*self.controller.new_patch_args)
-
-        elif patch_type == "InsertFunctionPatch":
-            ask_for_address_or_name(self.controller)
-            ask_for_code(self.controller)
-            patch = InsertFunctionPatch(*self.controller.new_patch_args)
-
-        elif patch_type == "RemoveFunctionPatch":
-            display_message(self.controller, "Not Implemented")
+        dialog = PatchCreateDialog(patch_type)
+        if dialog.exec() != QDialog.Accepted:
             return
+        patch_args = dialog.get_values()
 
-        elif patch_type == "ModifyInstructionPatch":
-            ask_for_address(self.controller)
-            ask_for_instructions(self.controller)
-            patch = ModifyInstructionPatch(*self.controller.new_patch_args)
-
-        elif patch_type == "InsertInstructionPatch":
-            ask_for_address_or_name(self.controller)
-            ask_for_instructions(self.controller)
-            patch = InsertInstructionPatch(*self.controller.new_patch_args)
-
-        elif patch_type == "RemoveInstructionPatch":
-            ask_for_address(self.controller)
-            ask_for_size(self.controller)
-            patch = RemoveInstructionPatch(*self.controller.new_patch_args)
-
-        ui_patch = UIPatch(
-            self.controller,
-            patch_type,
-            patch,
-            self.controller.new_patch_args,
-            parent=self,
-        )
-        self.patch_layout.addWidget(ui_patch)
-        self.controller.patches.append(ui_patch)
-        self.update()
+        self.add_patch_list_row(patch_type, patch_args)
+        self.controller.patches.append((patch_type, patch_args))
 
 
-class UIPatch(QWidget):
-    def __init__(self, controller, patch_name, patch, patch_args, parent=None):
-        super().__init__(parent)
-        self.parent = parent
-        self.controller = controller
-        self.patch = patch
-        self.patch_name = patch_name
-        self.patch_args = patch_args
-        self.main_layout = QHBoxLayout()
-        name = QLabel()
-        name.setText(patch_name)
-        remove = QPushButton()
-        remove.setText("Remove")
-        remove.clicked.connect(self.remove_from_parent)
-        view = QPushButton()
-        view.setText("View")
-        view.clicked.connect(self.view)
+class PatchCreateDialog(QDialog):
+    def __init__(self, patch_type: str):
+        super().__init__()
 
-        self.main_layout.addWidget(name)
-        self.main_layout.addWidget(view)
-        self.main_layout.addWidget(remove)
+        self.setWindowTitle(f"Create a new {patch_type} patch - Patcherex2")
+        self.main_layout = QVBoxLayout()
+        # TODO: check Patch __init__ signature and create input fields accordingly
+        if patch_type == "ModifyDataPatch":
+            self.add_input("addr", "int")
+            self.add_input("new_bytes", "bytes")
+
+        self.confirm_button = QPushButton("Confirm")
+        self.confirm_button.clicked.connect(self.accept)
+        self.main_layout.addWidget(self.confirm_button)
+
         self.setLayout(self.main_layout)
 
-    def view(self):
-        patch_string = self.patch_name + "(" + self.patch_args.__repr__()[1:-1] + ")"
-        self.controller.deci.print(patch_string)
-        display_message(self.controller, patch_string)
+    def get_values(self):
+        values = {}
+        for i in range(self.main_layout.count()):
+            layout = self.main_layout.itemAt(i)
+            if isinstance(layout, QHBoxLayout):
+                input_ = layout.itemAt(1).widget()
+                name = input_.objectName()
+                if isinstance(input_, QLineEdit):
+                    values[name] = int(input_.text(), 0)
+                elif isinstance(input_, QTextEdit):
+                    values[name] = input_.toPlainText()
+        return values
 
-    def remove_from_parent(self):
-        self.controller.patches.remove(self)
-        self.setParent(None)
-        self.parent.update()
+    def add_input(self, name, type_):
+        layout = QHBoxLayout()
+        if type_ == "int":
+            layout.addWidget(QLabel(f"{name}:"))
+            input_ = QLineEdit()
+            input_.setObjectName(name)
+            layout.addWidget(input_)
+        elif type_ == "str":
+            layout.addWidget(QLabel(f"{name}:"))
+            input_ = QTextEdit()
+            layout.addWidget(input_)
+        elif type_ == "bytes":
+            layout.addWidget(QLabel(f"{name}:"))
+            input_ = QTextEdit()
+            layout.addWidget(input_)
+        else:
+            layout.addWidget(QLabel(f"{name}:"))
+            input_ = QLineEdit()
+            layout.addWidget(input_)
+
+        self.main_layout.addLayout(layout)
 
 
 class ConfigurePatcherex2Dialog(QDialog):
@@ -387,25 +308,6 @@ class ConfigurePatcherex2Dialog(QDialog):
         self.close()
 
 
-class PatchScriptEditor(QDialog):
-    def __init__(self, text, parent=None):
-        super().__init__(parent)
-        self.setWindowTitle("Patcherex2 Script Editor")
-        layout = QVBoxLayout()
-        self.editor = QTextEdit()
-        self.editor.setPlainText(text)
-        layout.addWidget(self.editor)
-        self.setLayout(layout)
-
-        button_box = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
-        button_box.accepted.connect(self.accept)
-        button_box.rejected.connect(self.reject)
-        layout.addWidget(button_box)
-
-    def get_script(self):
-        return self.editor.toPlainText()
-
-
 class PatchSelector(QDialog):
     def __init__(self):
         super().__init__()
@@ -431,48 +333,6 @@ class PatchSelector(QDialog):
 
     def get_value(self):
         return self.patch_selector.currentText()
-
-
-class MultiLineDialog(QDialog):
-    def __init__(self, controller, query, parent=None):
-        super().__init__(parent)
-        self.controller = controller
-        self.setWindowTitle("Patcherex2")
-        layout = QVBoxLayout()
-        query = QLabel(query)
-        self.text_input = QTextEdit()
-        confirm_button = QPushButton("Confirm")
-        confirm_button.clicked.connect(self.confirm_selection)
-
-        layout.addWidget(query)
-        layout.addWidget(self.text_input)
-        layout.addWidget(confirm_button)
-        self.setLayout(layout)
-
-    def confirm_selection(self):
-        self.controller.new_patch_args.append(self.text_input.toPlainText())
-        self.close()
-
-
-class SingleLineDialog(QDialog):
-    def __init__(self, controller, query, parent=None):
-        super().__init__(parent)
-        self.controller = controller
-        self.setWindowTitle("Patcherex2")
-        layout = QVBoxLayout()
-        query = QLabel(query)
-        self.text_input = QLineEdit()
-        confirm_button = QPushButton("Confirm")
-        confirm_button.clicked.connect(self.confirm_selection)
-
-        layout.addWidget(query)
-        layout.addWidget(self.text_input)
-        layout.addWidget(confirm_button)
-        self.setLayout(layout)
-
-    def confirm_selection(self):
-        self.controller.new_patch_args.append(self.text_input.text())
-        self.close()
 
 
 class LoadBinaryDialog(QDialog):
@@ -543,53 +403,3 @@ class MessageDialog(QDialog):
 
     def confirm_selection(self):
         self.close()
-
-
-def ask_for_instructions(controller):
-    dialog = MultiLineDialog(controller, "Instructions for the patch?")
-    dialog.exec_()
-
-
-def ask_for_code(controller):
-    dialog = MultiLineDialog(controller, "Code for the patch?")
-    dialog.exec_()
-
-
-def ask_for_size(controller):
-    dialog = SingleLineDialog(controller, "Size of the patch?")
-    dialog.exec_()
-    arg = controller.new_patch_args[-1]
-    controller.new_patch_args[-1] = int(arg)
-
-
-def ask_for_bytes(controller):
-    dialog = MultiLineDialog(controller, "Bytes to use for the patch?")
-    dialog.exec_()
-    arg = controller.new_patch_args[-1]
-    controller.new_patch_args[-1] = arg.encode()
-
-
-def ask_for_address(controller):
-    dialog = SingleLineDialog(
-        controller, "Address to use for the patch? (start it with 0x)"
-    )
-    dialog.exec_()
-    arg = controller.new_patch_args[-1]
-    controller.new_patch_args[-1] = int(arg, 16)
-
-
-def ask_for_address_or_name(controller):
-    dialog = SingleLineDialog(
-        controller,
-        "Address or name to use for the patch? (if address, start it with 0x)",
-    )
-    dialog.exec_()
-    arg = controller.new_patch_args[-1]
-
-    if arg[:2] == "0x":
-        controller.new_patch_args[-1] = int(arg, 16)
-
-
-def display_message(controller, message):
-    dialog = MessageDialog(controller, message)
-    dialog.exec_()
