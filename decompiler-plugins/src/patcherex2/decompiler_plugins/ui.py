@@ -175,7 +175,7 @@ class ControlPanel(QWidget):
             script += f"p.patches.append({patch.patch_name}({', '.join(map(repr, patch.patch_args))}))\n\n"
 
         script += "p.apply_patches()\n"
-        script += f"p.save_binary('{binary_path + '-patched'}')\n"
+        script += "p.save_binary()\n"
 
         return script
 
@@ -237,12 +237,12 @@ class ControlPanel(QWidget):
             return
         display_message(
             self.controller,
-            "Binary patched! A new file with '-patched' appended has been made. Load it to see the changes.",
+            "Binary patched! A new file with '.patched' appended has been made. Load it to see the changes.",
         )
         dialog = LoadBinaryDialog()
         if dialog.exec() == QDialog.Accepted:
             # FIXME we need this feature but this is definitely not the right way to do it
-            os.system(f"angr-management {binary_path}-patched &")
+            os.system(f"angr-management {binary_path}.patched &")
 
     def add_patch(self):
         dialog = PatchSelector()
