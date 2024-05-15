@@ -208,11 +208,8 @@ class ControlPanel(QWidget):
             binary_path = self.controller.deci.binary_path
             script = self.script_editor.toPlainText()
 
-            with open(binary_path + "_generated_patch.py", "w") as f:
-                f.write(script.replace("\\\\x", "\\x"))
+            exec(script)
 
-            # TODO: pipe the output to the log widget
-            subprocess.run(["python3", binary_path + "_generated_patch.py"])
         except Exception as e:
             logging.getLogger("patcherex2").error(e)
             QMessageBox.critical(None, "Error", f"Failed to patch binary: {e}")
