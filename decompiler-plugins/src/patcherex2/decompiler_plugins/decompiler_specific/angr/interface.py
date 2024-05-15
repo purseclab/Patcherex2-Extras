@@ -71,9 +71,8 @@ class Patcherex2Plugin(GenericBSAngrManagementPlugin):
     # BinSync Menu
     #
 
-    MENU_BUTTONS = ("Configure Patcherex2 ...", "Toggle Patcherex2 Panel")
+    MENU_BUTTONS = ["Configure Patcherex2 ..."]
     MENU_CONFIG_ID = 0
-    MENU_TOGGLE_PANEL_ID = 1
 
     def handle_click_menu(self, idx):
         # sanity check on menu selection
@@ -82,7 +81,6 @@ class Patcherex2Plugin(GenericBSAngrManagementPlugin):
 
         mapping = {
             self.MENU_CONFIG_ID: self.open_sync_config_dialog,
-            self.MENU_TOGGLE_PANEL_ID: self.toggle_sync_panel,
         }
 
         # call option mapped to each menu pos
@@ -94,10 +92,3 @@ class Patcherex2Plugin(GenericBSAngrManagementPlugin):
 
         if self.control_panel_view not in self.workspace.view_manager.views:
             self.workspace.add_view(self.control_panel_view)
-
-    def toggle_sync_panel(self):
-        if self.control_panel_view.isVisible():
-            self.control_panel_view.close()
-            return
-
-        self.workspace.add_view(self.control_panel_view)
