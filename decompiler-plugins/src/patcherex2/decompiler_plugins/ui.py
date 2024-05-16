@@ -299,15 +299,15 @@ class PatchCreateDialog(QDialog):
         layout = QHBoxLayout()
         layout.addWidget(QLabel(f"{name}:"))
         if type_ == "int":
-            input_ = QLineEdit(self.prefill_values.get(name, ""))
-        if type_ == "int | str":
-            input_ = AddressOrNameEdit(self.prefill_values.get(name, ""))
+            input_ = QLineEdit(str(self.prefill_values.get(name, "")))
+        elif type_ == "int | str":
+            input_ = AddressOrNameEdit(str(self.prefill_values.get(name, "")))
         elif type_ == "str":
             input_ = QTextEdit(self.prefill_values.get(name, ""))
         elif type_ == "bytes":
-            input_ = BytesEdit(self.prefill_values.get(name, ""))
+            input_ = BytesEdit(self.prefill_values.get(name, b"").decode())
         else:
-            input_ = QLineEdit(self.prefill_values.get(name, ""))
+            raise ValueError(f"Unknown input type: {type_}")
 
         input_.setObjectName(name)
         layout.addWidget(input_)
