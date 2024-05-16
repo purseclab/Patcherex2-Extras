@@ -59,6 +59,7 @@ class Patcherex2Plugin(GenericBSAngrManagementPlugin):
             workspace.main_instance, "right", self.controller
         )
         self.controller.control_panel = self.control_panel_view
+        self.controller.workspace = workspace
 
         self.sync_menu = None
         self.selected_funcs = []

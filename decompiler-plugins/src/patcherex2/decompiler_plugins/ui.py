@@ -213,7 +213,11 @@ class ControlPanel(QWidget):
         dialog = LoadBinaryDialog()
         if dialog.exec() == QDialog.Accepted:
             # FIXME we need this feature but this is definitely not the right way to do it
-            os.system(f"angr-management {binary_path}.patched &")
+            # os.system(f"angr-management {binary_path}.patched &")
+            # FIXME: of course this is hacky too
+            from angrmanagement.plugins.precise_diffing.precisediff_plugin import PreciseDiffPlugin
+            diff_plugin = PreciseDiffPlugin(self.controller.workspace)
+            diff_plugin.load_revised_binary_from_file(f"{binary_path}.patched")
 
     def add_patch(self):
         dialog = PatchSelector()
@@ -281,6 +285,8 @@ class PatchCreateDialog(QDialog):
         elif patch_type == "InsertFunctionPatch":
             self.add_input("addr_or_name", "int | str")
             self.add_input("code", "str")
+            self.add_input("prefunc", "str | none")
+            self.add_input("postfunc", "str | none")
 
         self.confirm_button = QPushButton("Confirm")
         self.confirm_button.clicked.connect(self.accept)
@@ -295,7 +301,7 @@ class PatchCreateDialog(QDialog):
             if isinstance(layout, QHBoxLayout):
                 input_ = layout.itemAt(1).widget()
                 name = input_.objectName()
-                if isinstance(input_, (AddressOrNameEdit, BytesEdit)):
+                if isinstance(input_, (AddressOrNameEdit, BytesEdit, TextOrNoneEdit)):
                     values[name] = input_.get_value()
                 elif isinstance(input_, QTextEdit):
                     values[name] = input_.toPlainText()
@@ -311,21 +317,29 @@ class PatchCreateDialog(QDialog):
         layout = QHBoxLayout()
         layout.addWidget(QLabel(f"{name}:"))
         if type_ == "int":
-            input_ = QLineEdit(self.prefill_values.get(name, ""))
-        if type_ == "int | str":
-            input_ = AddressOrNameEdit(self.prefill_values.get(name, ""))
+            input_ = QLineEdit(str(self.prefill_values.get(name, "")))
+        elif type_ == "int | str":
+            input_ = AddressOrNameEdit(str(self.prefill_values.get(name, "")))
         elif type_ == "str":
             input_ = QTextEdit(self.prefill_values.get(name, ""))
         elif type_ == "bytes":
-            input_ = BytesEdit(self.prefill_values.get(name, ""))
+            input_ = BytesEdit(self.prefill_values.get(name, b"").decode())
+        elif type_ == "str | none":
+            input_ = TextOrNoneEdit(self.prefill_values.get(name, ""))
         else:
-            input_ = QLineEdit(self.prefill_values.get(name, ""))
+            raise ValueError(f"Unknown input type: {type_}")
 
         input_.setObjectName(name)
         layout.addWidget(input_)
 
         self.main_layout.addLayout(layout)
 
+
+class TextOrNoneEdit(QTextEdit):
+    def get_value(self):
+        if self.toPlainText() == "":
+            return None
+        return self.toPlainText()
 
 class AddressOrNameEdit(QLineEdit):
     def get_value(self):
