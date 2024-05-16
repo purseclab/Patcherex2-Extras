@@ -1,26 +1,15 @@
 import os
-import subprocess
 
-from libbs.ui.qt_objects import (
-    QAbstractItemView,
-    QCheckBox,
-    QComboBox,
-    QDialog,
-    QDialogButtonBox,
-    QGridLayout,
-    QGroupBox,
-    QHBoxLayout,
-    QHeaderView,
-    QLabel,
-    QLineEdit,
-    QMessageBox,
-    QPushButton,
-    Qt,
-    QTableWidget,
-    QVBoxLayout,
-    QWidget,
-)
+import patcherex2
+from libbs.ui.qt_objects import (QAbstractItemView, QCheckBox, QComboBox,
+                                 QDialog, QDialogButtonBox, QGridLayout,
+                                 QGroupBox, QHBoxLayout, QHeaderView, QLabel,
+                                 QLineEdit, QMessageBox, QPushButton, Qt,
+                                 QTableWidget, QVBoxLayout, QWidget)
 from libbs.ui.version import ui_version
+
+from .controller import Patcherex2Controller
+from .decompiler_specific.libbs_deci_extras import get_ctx_address
 
 if ui_version == "PySide6":
     from PySide6.QtWidgets import QTextEdit
@@ -29,7 +18,10 @@ else:
 
 import logging
 
-import patcherex2
+os.environ['PYTHONBREAKPOINT'] = 'remote_pdb.set_trace'
+os.environ['REMOTE_PDB_PORT'] = '1234'
+
+
 
 logging.getLogger("patcherex2").setLevel(logging.INFO)
 
@@ -37,7 +29,7 @@ logging.getLogger("patcherex2").setLevel(logging.INFO)
 class ControlPanel(QWidget):
     def __init__(self, controller, parent=None):
         super().__init__(parent)
-        self.controller = controller
+        self.controller: Patcherex2Controller = controller
         self.main_layout = QVBoxLayout()
 
         self.add_options()
@@ -46,6 +38,9 @@ class ControlPanel(QWidget):
         self.add_bottom_buttons()
 
         self.setLayout(self.main_layout)
+
+        self.controller.deci.gui_register_ctx_menu(
+            "PatchAddress", "Create a patch at this address", lambda *x, **y: self.add_patch_ctxmenu_addr(), category="Patcherex2")
 
     def add_options(self):
         options_layout = QGridLayout()
@@ -228,6 +223,23 @@ class ControlPanel(QWidget):
         patch_type = dialog.get_value()
         dialog = PatchCreateDialog(patch_type)
         if dialog.exec() != QDialog.Accepted:
+            return
+        patch_args = dialog.get_values()
+
+        self.add_patch_list_row(patch_type, patch_args)
+        self.controller.patches.append((patch_type, patch_args))
+
+    def add_patch_ctxmenu_addr(self):
+        addr = get_ctx_address(self.controller.deci)
+        if addr is None:
+            return
+        dialog = PatchSelector()
+        if dialog.exec_() != QDialog.Accepted:
+            return
+        patch_type = dialog.get_value()
+        dialog = PatchCreateDialog(
+            patch_type, {"addr": hex(addr), "addr_or_name": hex(addr)})
+        if dialog.exec_() != QDialog.Accepted:
             return
         patch_args = dialog.get_values()
 
