@@ -118,8 +118,7 @@ class ControlPanel(QWidget):
 
     def remove_patch(self):
         button = self.sender()
-        breakpoint()
-        row = self.patch_table.indexAt(button.pos()).row()
+        row = self.patch_table.indexAt(button.parent().pos()).row()
         self.patch_table.removeRow(row)
         self.controller.patches.pop(row)
 
@@ -127,7 +126,7 @@ class ControlPanel(QWidget):
         # it should pop up a pre-filled PatchCreateDialog with the current values
         # and then update the patch in the controller and the table
         button = self.sender()
-        row = self.patch_table.indexAt(button.pos()).row()
+        row = self.patch_table.indexAt(button.parent().pos()).row()
         patch_type = self.patch_table.cellWidget(row, 0).text()
         patch_args = self.controller.patches[row].args
         patch_args = {k: hex(v) if isinstance(
