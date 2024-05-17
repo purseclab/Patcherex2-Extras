@@ -270,7 +270,7 @@ class PatchCreateDialog(QDialog):
 
         self.prefill_values = prefill_values or {}
 
-        self.setWindowTitle(f"Create a new {patch_type} patch - Patcherex2")
+        self.setWindowTitle(f"{patch_type} - Patcherex2")
         self.main_layout = QVBoxLayout()
         # TODO: check Patch __init__ signature using `inspect` and create input fields accordingly
         # but note that some params are optional, some are mutually exclusive, etc.
@@ -314,27 +314,18 @@ class PatchCreateDialog(QDialog):
             if isinstance(layout, QHBoxLayout):
                 input_ = layout.itemAt(1).widget()
                 name = input_.objectName()
-                if isinstance(input_, (AddressOrNameEdit, BytesEdit, TextOrNoneEdit)):
-                    values[name] = input_.get_value()
-                elif isinstance(input_, QTextEdit):
-                    values[name] = input_.toPlainText()
-                elif isinstance(input_, QLineEdit):
-                    values[name] = int(input_.text(), 0)
-                else:
-                    QMessageBox.critical(
-                        None, "Error", f"Unknown input type: {type(input_)}"
-                    )
+                values[name] = input_.get_value()
         return values
 
     def add_input(self, name, type_):
         layout = QHBoxLayout()
         layout.addWidget(QLabel(f"{name}:"))
         if type_ == "int":
-            input_ = QLineEdit(str(self.prefill_values.get(name, "")))
+            input_ = AddressEdit(self.prefill_values.get(name, ""))
         elif type_ == "int | str":
-            input_ = AddressOrNameEdit(str(self.prefill_values.get(name, "")))
+            input_ = AddressOrNameEdit(self.prefill_values.get(name, ""))
         elif type_ == "str":
-            input_ = QTextEdit(self.prefill_values.get(name, ""))
+            input_ = CodeEdit(self.prefill_values.get(name, ""))
         elif type_ == "bytes":
             input_ = BytesEdit(self.prefill_values.get(name, b"").decode())
         elif type_ == "str | none":
@@ -353,6 +344,15 @@ class TextOrNoneEdit(QTextEdit):
         if self.toPlainText() == "":
             return None
         return self.toPlainText()
+    
+class CodeEdit(QTextEdit):
+    def __init__(self, text: str):
+        super().__init__()
+        self.setPlainText(text)
+
+    def get_value(self):
+        return self.toPlainText()
+
 
 
 class AddressOrNameEdit(QLineEdit):
@@ -361,9 +361,21 @@ class AddressOrNameEdit(QLineEdit):
             return int(self.text(), 0)
         except ValueError:
             return self.text()
+        
+
+class AddressEdit(QLineEdit):
+    def get_value(self):
+        try:
+            return int(self.text(), 0)
+        except ValueError:
+            return 0
 
 
 class BytesEdit(QTextEdit):
+    def __init__(self, text: str):
+        super().__init__()
+        self.setPlainText(text)
+        
     def get_value(self):
         return self.toPlainText().encode()
 
