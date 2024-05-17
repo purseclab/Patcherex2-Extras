@@ -8,7 +8,7 @@ from libbs.ui.qt_objects import (QAbstractItemView, QCheckBox, QComboBox,
                                  QTableWidget, QVBoxLayout, QWidget)
 from libbs.ui.version import ui_version
 
-from .controller import Patcherex2Controller
+from .controller import Patcherex2Controller, UIPatch
 from .decompiler_specific.libbs_deci_extras import get_ctx_address
 
 if ui_version == "PySide6":
@@ -67,14 +67,7 @@ class ControlPanel(QWidget):
         patch_table = QTableWidget()
         patch_table.setColumnCount(3)
         patch_table.setHorizontalHeaderLabels(
-            ["Patch Type", "Arguments", "Actions"])
-        patch_table.horizontalHeader().setSectionResizeMode(
-            QHeaderView.ResizeToContents
-        )
-        patch_table.horizontalHeader().setSectionResizeMode(1, QHeaderView.Stretch)
-        patch_table.horizontalHeader().setSectionResizeMode(
-            2, QHeaderView.ResizeToContents
-        )
+            ["Patch Type", "Location", "Actions"])
         patch_table.verticalHeader().setVisible(False)
         patch_table.setEditTriggers(QAbstractItemView.NoEditTriggers)
 
@@ -88,16 +81,19 @@ class ControlPanel(QWidget):
         self.patch_table = patch_table
 
         for patch in self.controller.patches:
-            self.add_patch_list_row(patch[0], patch[1])
+            self.add_patch_list_row(patch.patch_type, patch.args)
 
     def add_patch_list_row(self, patch_type, patch_args):
         self.patch_table.insertRow(self.patch_table.rowCount())
         self.patch_table.setCellWidget(
             self.patch_table.rowCount() - 1, 0, QLabel(patch_type)
         )
-        arg_str = ", ".join([f"{k}={v}" for k, v in patch_args.items()])
+
+        loc = patch_args.get("addr", patch_args.get("addr_or_name", ""))
+        if isinstance(loc, int):
+            loc = hex(loc)
         self.patch_table.setCellWidget(
-            self.patch_table.rowCount() - 1, 1, QLabel(arg_str)
+            self.patch_table.rowCount() - 1, 1, QLabel(loc)
         )
         remove_button = QPushButton("Remove")
         remove_button.clicked.connect(self.remove_patch)
@@ -110,9 +106,19 @@ class ControlPanel(QWidget):
         self.patch_table.setCellWidget(
             self.patch_table.rowCount() - 1, 2, buttons_widget
         )
+        self.patch_table.horizontalHeader().setSectionResizeMode(
+            0, QHeaderView.ResizeToContents
+        )
+        self.patch_table.horizontalHeader().setSectionResizeMode(
+            1, QHeaderView.Stretch
+        )
+        self.patch_table.horizontalHeader().setSectionResizeMode(
+            2, QHeaderView.ResizeToContents
+        )
 
     def remove_patch(self):
         button = self.sender()
+        breakpoint()
         row = self.patch_table.indexAt(button.pos()).row()
         self.patch_table.removeRow(row)
         self.controller.patches.pop(row)
@@ -123,13 +129,17 @@ class ControlPanel(QWidget):
         button = self.sender()
         row = self.patch_table.indexAt(button.pos()).row()
         patch_type = self.patch_table.cellWidget(row, 0).text()
-        patch_args = self.controller.patches[row][1]
-        patch_args = {k: hex(v) if isinstance(v, int) else v for k, v in patch_args.items()}
+        patch_args = self.controller.patches[row].args
+        patch_args = {k: hex(v) if isinstance(
+            v, int) else v for k, v in patch_args.items()}
         dialog = PatchCreateDialog(patch_type, patch_args)
         dialog.exec_()
         new_patch_args = dialog.get_values()
-        self.controller.patches[row] = (patch_type, new_patch_args)
-        arg_str = ", ".join([f"{k}={v}" for k, v in new_patch_args.items()])
+        self.controller.patches[row] = UIPatch(patch_type, new_patch_args)
+        
+        loc = new_patch_args.get("addr", patch_args.get("addr_or_name", ""))
+        if isinstance(loc, int):
+            loc = hex(loc)
         self.patch_table.cellWidget(row, 1).setText(arg_str)
 
     def add_patch_script_editor(self):
@@ -194,7 +204,7 @@ class ControlPanel(QWidget):
             script += "    p.allocation_manager.add_free_space(func['addr'], func['size'], 'RX')\n"
 
         for patch in self.controller.patches:
-            script += f"p.patches.append({patch[0]}({', '.join([f'{k}={repr(v)}' for k, v in patch[1].items()])}))\n"
+            script += f"p.patches.append({patch.patch_type}({', '.join([f'{k}={repr(v)}' for k, v in patch.args.items()])}))\n"
 
         script += "p.apply_patches()\n"
         script += "p.save_binary()\n"
@@ -235,7 +245,7 @@ class ControlPanel(QWidget):
         patch_args = dialog.get_values()
 
         self.add_patch_list_row(patch_type, patch_args)
-        self.controller.patches.append((patch_type, patch_args))
+        self.controller.patches.append(UIPatch(patch_type, patch_args))
 
     def add_patch_ctxmenu_addr(self):
         addr = get_ctx_address(self.controller.deci)
@@ -252,7 +262,7 @@ class ControlPanel(QWidget):
         patch_args = dialog.get_values()
 
         self.add_patch_list_row(patch_type, patch_args)
-        self.controller.patches.append((patch_type, patch_args))
+        self.controller.patches.append(UIPatch(patch_type, patch_args))
 
 
 class PatchCreateDialog(QDialog):
