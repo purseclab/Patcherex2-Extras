@@ -22,7 +22,6 @@ os.environ['PYTHONBREAKPOINT'] = 'remote_pdb.set_trace'
 os.environ['REMOTE_PDB_PORT'] = '1234'
 
 
-
 logging.getLogger("patcherex2").setLevel(logging.INFO)
 
 
@@ -53,7 +52,8 @@ class ControlPanel(QWidget):
             "Automatically find unused functions and mark them as free space."
         )
         unused_space_checkbox.setChecked(self.controller.find_unused_space)
-        unused_space_checkbox.stateChanged.connect(self.toggle_reuse_unused_funcs)
+        unused_space_checkbox.stateChanged.connect(
+            self.toggle_reuse_unused_funcs)
         options_layout.addWidget(unused_space_checkbox, 0, 0)
 
         # Add unused space button
@@ -66,7 +66,8 @@ class ControlPanel(QWidget):
     def add_patch_list(self):
         patch_table = QTableWidget()
         patch_table.setColumnCount(3)
-        patch_table.setHorizontalHeaderLabels(["Patch Type", "Arguments", "Actions"])
+        patch_table.setHorizontalHeaderLabels(
+            ["Patch Type", "Arguments", "Actions"])
         patch_table.horizontalHeader().setSectionResizeMode(
             QHeaderView.ResizeToContents
         )
@@ -123,6 +124,7 @@ class ControlPanel(QWidget):
         row = self.patch_table.indexAt(button.pos()).row()
         patch_type = self.patch_table.cellWidget(row, 0).text()
         patch_args = self.controller.patches[row][1]
+        patch_args = {k: hex(v) if isinstance(v, int) else v for k, v in patch_args.items()}
         dialog = PatchCreateDialog(patch_type, patch_args)
         dialog.exec_()
         new_patch_args = dialog.get_values()
@@ -136,7 +138,8 @@ class ControlPanel(QWidget):
         script_editor_group.setLayout(script_editor_layout)
 
         script_editor = QTextEdit()
-        script_editor.setPlaceholderText("Patch script will be generated here.")
+        script_editor.setPlaceholderText(
+            "Patch script will be generated here.")
         script_editor_layout.addWidget(script_editor)
 
         self.main_layout.addWidget(script_editor_group)
@@ -215,7 +218,8 @@ class ControlPanel(QWidget):
             # FIXME we need this feature but this is definitely not the right way to do it
             # os.system(f"angr-management {binary_path}.patched &")
             # FIXME: of course this is hacky too
-            from angrmanagement.plugins.precise_diffing.precisediff_plugin import PreciseDiffPlugin
+            from angrmanagement.plugins.precise_diffing.precisediff_plugin import \
+                PreciseDiffPlugin
             diff_plugin = PreciseDiffPlugin(self.controller.workspace)
             diff_plugin.load_revised_binary_from_file(f"{binary_path}.patched")
 
@@ -341,6 +345,7 @@ class TextOrNoneEdit(QTextEdit):
             return None
         return self.toPlainText()
 
+
 class AddressOrNameEdit(QLineEdit):
     def get_value(self):
         try:
@@ -405,7 +410,8 @@ class PatchSelector(QDialog):
             self.patch_selector.addItem(patch)
         layout.addWidget(self.patch_selector)
 
-        button_box = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
+        button_box = QDialogButtonBox(
+            QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
         button_box.accepted.connect(self.accept)
         button_box.rejected.connect(self.reject)
         layout.addWidget(button_box)
@@ -427,7 +433,8 @@ class LoadBinaryDialog(QDialog):
         instructions = QLabel("Would you like to load the patched binary?")
         layout.addWidget(instructions)
 
-        button_box = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
+        button_box = QDialogButtonBox(
+            QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
         button_box.accepted.connect(self.accept)
         button_box.rejected.connect(self.reject)
         layout.addWidget(button_box)
@@ -442,7 +449,8 @@ class AddUnusedSpaceDialog(QDialog):
         self.setWindowTitle("Patcherex2")
         layout = QVBoxLayout()
 
-        label = QLabel("Please enter the address and size of the unused space.")
+        label = QLabel(
+            "Please enter the address and size of the unused space.")
         layout.addWidget(label)
 
         address_label = QLabel("Address:")
