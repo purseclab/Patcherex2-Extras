@@ -140,7 +140,7 @@ class ControlPanel(QWidget):
         loc = new_patch_args.get("addr", patch_args.get("addr_or_name", ""))
         if isinstance(loc, int):
             loc = hex(loc)
-        self.patch_table.cellWidget(row, 1).setText(arg_str)
+        self.patch_table.cellWidget(row, 1).setText(loc)
 
     def add_patch_script_editor(self):
         script_editor_layout = QVBoxLayout()
