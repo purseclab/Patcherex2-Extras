@@ -158,7 +158,7 @@ class ControlPanel(QWidget):
     def add_bottom_buttons(self):
         bottom_layout = QHBoxLayout()
         add_patch = QPushButton("Add a New Patch")
-        add_patch.clicked.connect(self.add_patch)
+        add_patch.clicked.connect(self.add_patch_ctxmenu_addr)
         regen_script = QPushButton("Regenerate Patch Script")
         regen_script.clicked.connect(self.regen_patch_script)
         patch_binary = QPushButton("Patch Binary")
@@ -249,13 +249,15 @@ class ControlPanel(QWidget):
     def add_patch_ctxmenu_addr(self):
         addr = get_ctx_address(self.controller.deci)
         if addr is None:
-            return
+            prefill = {}
+        else:
+            prefill = {"addr": hex(addr), "addr_or_name": hex(addr)}
         dialog = PatchSelector()
         if dialog.exec_() != QDialog.Accepted:
             return
         patch_type = dialog.get_value()
         dialog = PatchCreateDialog(
-            patch_type, {"addr": hex(addr), "addr_or_name": hex(addr)})
+            patch_type, prefill)
         if dialog.exec_() != QDialog.Accepted:
             return
         patch_args = dialog.get_values()
@@ -375,7 +377,7 @@ class BytesEdit(QTextEdit):
     def __init__(self, text: str):
         super().__init__()
         self.setPlainText(text)
-        
+
     def get_value(self):
         return self.toPlainText().encode()
 
