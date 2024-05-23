@@ -11,6 +11,9 @@ class Patcherex2Controller:
         self.find_unused_space = False
         self.manually_added_unused_space = []
 
+    def shutdown(self):
+        self.deci.shutdown()
+
 
 @dataclass
 class UIPatch:

@@ -6,7 +6,7 @@ from libbs.ui.qt_objects import QVBoxLayout
 from libbs.ui.version import set_ui_version
 
 from ...controller import Patcherex2Controller
-from ...ui import ConfigurePatcherex2Dialog, ControlPanel
+from ...ui import ControlPanel
 
 if typing.TYPE_CHECKING:
     from angrmanagement.ui.workspace import Workspace
@@ -61,9 +61,6 @@ class Patcherex2Plugin(GenericBSAngrManagementPlugin):
         self.controller.control_panel = self.control_panel_view
         self.controller.workspace = workspace
 
-        self.sync_menu = None
-        self.selected_funcs = []
-
     def teardown(self):
         del self.controller.deci
         self.workspace.remove_view(self.control_panel_view)
@@ -72,8 +69,9 @@ class Patcherex2Plugin(GenericBSAngrManagementPlugin):
     # BinSync Menu
     #
 
-    MENU_BUTTONS = ["Configure Patcherex2 ..."]
+    MENU_BUTTONS = ("Start Patcherex2...", "Toggle Patcherex2 Panel")
     MENU_CONFIG_ID = 0
+    MENU_TOGGLE_ID = 1
 
     def handle_click_menu(self, idx):
         # sanity check on menu selection
@@ -81,15 +79,19 @@ class Patcherex2Plugin(GenericBSAngrManagementPlugin):
             return
 
         mapping = {
-            self.MENU_CONFIG_ID: self.open_sync_config_dialog,
+            self.MENU_CONFIG_ID: self.start_ui,
+            self.MENU_TOGGLE_ID: self.toggle_panel
         }
 
         # call option mapped to each menu pos
         mapping.get(idx)()
 
-    def open_sync_config_dialog(self):
-        sync_config = ConfigurePatcherex2Dialog(self.controller)
-        sync_config.exec_()
-
+    def start_ui(self):
         if self.control_panel_view not in self.workspace.view_manager.views:
+            self.workspace.add_view(self.control_panel_view)
+
+    def toggle_panel(self):
+        if self.control_panel_view.isVisible():
+            self.control_panel_view.close()
+        else:
             self.workspace.add_view(self.control_panel_view)

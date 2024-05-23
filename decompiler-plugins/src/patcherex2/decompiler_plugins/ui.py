@@ -1,4 +1,5 @@
 import os
+import select
 
 import patcherex2
 from libbs.ui.qt_objects import (QAbstractItemView, QCheckBox, QComboBox,
@@ -6,6 +7,7 @@ from libbs.ui.qt_objects import (QAbstractItemView, QCheckBox, QComboBox,
                                  QGroupBox, QHBoxLayout, QHeaderView, QLabel,
                                  QLineEdit, QMessageBox, QPushButton, Qt,
                                  QTableWidget, QVBoxLayout, QWidget)
+from libbs.ui.utils import QThread
 from libbs.ui.version import ui_version
 
 from .controller import Patcherex2Controller, UIPatch
@@ -39,12 +41,30 @@ class ControlPanel(QWidget):
         self.setLayout(self.main_layout)
 
         self.controller.deci.gui_register_ctx_menu(
-            "PatchAddress", "Create a patch at this address", lambda *x, **y: self.add_patch_ctxmenu_addr(), category="Patcherex2")
+            "PatchAddress", "Create a patch at this address", lambda *x, **y: PatchThread(self).start(), category="Patcherex2")
 
     def add_options(self):
         options_layout = QGridLayout()
         options_group = QGroupBox("Options")
         options_group.setLayout(options_layout)
+
+        target_widget = QWidget()
+        selectTargetLayout = QHBoxLayout(target_widget)
+
+        target_selection_text = QLabel("Target:")
+
+        selectTargetLayout.addWidget(target_selection_text)
+
+        target_selection_dropdown = QComboBox(self)
+        target_selection_dropdown.addItem("auto")
+        for target_name in patcherex2.targets.__all__:
+            if target_name == "Target":
+                continue
+            target_selection_dropdown.addItem(target_name)
+        target_selection_dropdown.setCurrentText(self.controller.target)
+        target_selection_dropdown.currentTextChanged.connect(self.set_target)
+        selectTargetLayout.addWidget(target_selection_dropdown)
+        options_layout.addWidget(target_widget, 0, 0)
 
         # Automatically find unused space checkbox
         unused_space_checkbox = QCheckBox("Reuse Unused Functions")
@@ -54,12 +74,12 @@ class ControlPanel(QWidget):
         unused_space_checkbox.setChecked(self.controller.find_unused_space)
         unused_space_checkbox.stateChanged.connect(
             self.toggle_reuse_unused_funcs)
-        options_layout.addWidget(unused_space_checkbox, 0, 0)
+        options_layout.addWidget(unused_space_checkbox, 1, 0)
 
         # Add unused space button
         unused_space_button = QPushButton("Add Unused Space Manually")
         unused_space_button.clicked.connect(self.add_unused_space)
-        options_layout.addWidget(unused_space_button, 1, 0)
+        options_layout.addWidget(unused_space_button, 2, 0)
 
         self.main_layout.addWidget(options_group)
 
@@ -135,7 +155,7 @@ class ControlPanel(QWidget):
         dialog.exec_()
         new_patch_args = dialog.get_values()
         self.controller.patches[row] = UIPatch(patch_type, new_patch_args)
-        
+
         loc = new_patch_args.get("addr", patch_args.get("addr_or_name", ""))
         if isinstance(loc, int):
             loc = hex(loc)
@@ -172,6 +192,9 @@ class ControlPanel(QWidget):
 
     def regen_patch_script(self):
         self.script_editor.setPlainText(self.script_gen())
+
+    def set_target(self):
+        self.controller.target = self.sender().currentText()
 
     def toggle_reuse_unused_funcs(self):
         self.controller.find_unused_space = not self.controller.find_unused_space
@@ -266,6 +289,17 @@ class ControlPanel(QWidget):
         self.controller.patches.append(UIPatch(patch_type, patch_args))
 
 
+class PatchThread(QThread):
+    def __init__(self, controlpanel: ControlPanel):
+        super().__init__()
+        self.controlpanel = controlpanel
+
+    def run(self):
+        exec()
+        self.controlpanel.add_patch_ctxmenu_addr()
+        exit()
+
+
 class PatchCreateDialog(QDialog):
     def __init__(self, patch_type: str, prefill_values=None):
         super().__init__()
@@ -346,7 +380,8 @@ class TextOrNoneEdit(QTextEdit):
         if self.toPlainText() == "":
             return None
         return self.toPlainText()
-    
+
+
 class CodeEdit(QTextEdit):
     def __init__(self, text: str):
         super().__init__()
@@ -356,14 +391,13 @@ class CodeEdit(QTextEdit):
         return self.toPlainText()
 
 
-
 class AddressOrNameEdit(QLineEdit):
     def get_value(self):
         try:
             return int(self.text(), 0)
         except ValueError:
             return self.text()
-        
+
 
 class AddressEdit(QLineEdit):
     def get_value(self):
@@ -380,41 +414,6 @@ class BytesEdit(QTextEdit):
 
     def get_value(self):
         return self.toPlainText().encode()
-
-
-class ConfigurePatcherex2Dialog(QDialog):
-    def __init__(self, controller, parent=None):
-        super().__init__(parent)
-        self.controller = controller
-
-        self.setWindowTitle("Configurations - Patcherex2")
-        self.setMinimumSize(300, 250)
-        self.main_layout = QVBoxLayout()
-        self.main_layout.setAlignment(Qt.AlignCenter)
-
-        target_selection_text = QLabel("Select Target:")
-        self.main_layout.addWidget(target_selection_text)
-
-        target_selection_dropdown = QComboBox(self)
-        target_selection_dropdown.addItem("auto")
-        for target_name in patcherex2.targets.__all__:
-            if target_name == "Target":
-                continue
-            target_selection_dropdown.addItem(target_name)
-        target_selection_dropdown.setCurrentText(self.controller.target)
-        self.main_layout.addWidget(target_selection_dropdown)
-
-        save_button = QPushButton("Save")
-        save_button.clicked.connect(self.on_save_clicked)
-        self.main_layout.addWidget(save_button)
-
-        self.setLayout(self.main_layout)
-
-    def on_save_clicked(self):
-        self.controller.target = (
-            self.sender().parent().findChild(QComboBox).currentText()
-        )
-        self.close()
 
 
 class PatchSelector(QDialog):
