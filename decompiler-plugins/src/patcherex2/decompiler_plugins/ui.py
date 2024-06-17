@@ -1,5 +1,5 @@
 import os
-import select
+import select  # noqa: F401
 
 import patcherex2
 from libbs.ui.qt_objects import (QAbstractItemView, QCheckBox, QComboBox,
@@ -11,7 +11,7 @@ from libbs.ui.utils import QThread
 from libbs.ui.version import ui_version
 
 from .controller import Patcherex2Controller, UIPatch
-from .decompiler_specific.libbs_deci_extras import get_ctx_address
+from .decompiler_specific.libbs_deci_extras import *
 
 if ui_version == "PySide6":
     from PySide6.QtWidgets import QTextEdit
@@ -247,13 +247,7 @@ class ControlPanel(QWidget):
         QMessageBox.information(None, "Success", "Binary patched!")
         dialog = LoadBinaryDialog()
         if dialog.exec() == QDialog.Accepted:
-            # FIXME we need this feature but this is definitely not the right way to do it
-            # os.system(f"angr-management {binary_path}.patched &")
-            # FIXME: of course this is hacky too
-            from angrmanagement.plugins.precise_diffing.precisediff_plugin import \
-                PreciseDiffPlugin
-            diff_plugin = PreciseDiffPlugin(self.controller.workspace)
-            diff_plugin.load_revised_binary_from_file(f"{binary_path}.patched")
+            load_patched_binary(self.controller.deci, binary_path=binary_path)
 
     def add_patch(self):
         dialog = PatchSelector()
