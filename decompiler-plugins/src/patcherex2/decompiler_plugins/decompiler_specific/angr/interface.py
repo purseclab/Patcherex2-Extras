@@ -58,8 +58,7 @@ class Patcherex2Plugin(GenericBSAngrManagementPlugin):
         self.control_panel_view = ControlPanelView(
             workspace.main_instance, "right", self.controller
         )
-        self.controller.control_panel = self.control_panel_view
-        self.controller.workspace = workspace
+
         self.panelvisible = False
 
     def teardown(self):

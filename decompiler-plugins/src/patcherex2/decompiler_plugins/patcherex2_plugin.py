@@ -1,7 +1,7 @@
 # Plugin that allows you to use Patcherex2 in the most common decompilers
 # @author PurSec Lab
 # @category Patcherex2
-# @menupath Tools.Patcherex2.Start UI
+# @menupath Tools.Patcherex2
 
 # pyright: reportMissingImports=false
 
