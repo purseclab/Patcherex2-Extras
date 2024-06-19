@@ -41,7 +41,7 @@ class ControlPanelView(BaseView):
 
 class Patcherex2Plugin(GenericBSAngrManagementPlugin):
     """
-    Controller plugin for BinSync
+    Controller plugin for Patcherex2
     """
 
     def __init__(self, workspace: "Workspace"):
@@ -60,6 +60,7 @@ class Patcherex2Plugin(GenericBSAngrManagementPlugin):
         )
         self.controller.control_panel = self.control_panel_view
         self.controller.workspace = workspace
+        self.panelvisible = False
 
     def teardown(self):
         del self.controller.deci
@@ -89,9 +90,11 @@ class Patcherex2Plugin(GenericBSAngrManagementPlugin):
     def start_ui(self):
         if self.control_panel_view not in self.workspace.view_manager.views:
             self.workspace.add_view(self.control_panel_view)
+            self.panelvisible = True
 
     def toggle_panel(self):
-        if self.control_panel_view.isVisible():
-            self.control_panel_view.close()
+        if self.panelvisible:
+            self.workspace.remove_view(self.control_panel_view)
         else:
             self.workspace.add_view(self.control_panel_view)
+        self.panelvisible = not self.panelvisible
