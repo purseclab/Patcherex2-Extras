@@ -5,6 +5,8 @@ from libbs.decompilers.angr.compat import GenericBSAngrManagementPlugin
 from libbs.ui.qt_objects import QVBoxLayout
 from libbs.ui.version import set_ui_version
 
+from PySide6QtAds import SideBarRight, CDockWidget, CDockManager
+
 from ...controller import Patcherex2Controller
 from ...ui import ControlPanel
 
@@ -33,6 +35,13 @@ class ControlPanelView(BaseView):
     def reload(self):
         pass
 
+    def close(self):
+        self.hide()
+
+    def closeEvent(self, event):
+        self.hide()
+        event.ignore()
+
     def _init_widgets(self):
         main_layout = QVBoxLayout()
         main_layout.addWidget(self.control_panel)
@@ -59,19 +68,14 @@ class Patcherex2Plugin(GenericBSAngrManagementPlugin):
             workspace.main_instance, "right", self.controller
         )
 
-        self.panelvisible = False
 
     def teardown(self):
         del self.controller.deci
         self.workspace.remove_view(self.control_panel_view)
 
-    #
-    # BinSync Menu
-    #
 
-    MENU_BUTTONS = ("Start Patcherex2...", "Toggle Patcherex2 Panel")
-    MENU_CONFIG_ID = 0
-    MENU_TOGGLE_ID = 1
+    MENU_BUTTONS = ("Toggle Patcherex2 Panel",)
+    MENU_TOGGLE_ID = 0
 
     def handle_click_menu(self, idx):
         # sanity check on menu selection
@@ -79,21 +83,19 @@ class Patcherex2Plugin(GenericBSAngrManagementPlugin):
             return
 
         mapping = {
-            self.MENU_CONFIG_ID: self.start_ui,
             self.MENU_TOGGLE_ID: self.toggle_panel
         }
 
         # call option mapped to each menu pos
         mapping.get(idx)()
 
-    def start_ui(self):
-        if self.control_panel_view not in self.workspace.view_manager.views:
-            self.workspace.add_view(self.control_panel_view)
-            self.panelvisible = True
 
     def toggle_panel(self):
-        if self.panelvisible:
+        if self.control_panel_view in self.workspace.view_manager.views:
             self.workspace.remove_view(self.control_panel_view)
         else:
             self.workspace.add_view(self.control_panel_view)
-        self.panelvisible = not self.panelvisible
+            dock = self.workspace.view_manager.view_to_dock[self.control_panel_view]
+            dock.closed.disconnect()
+            dock.setFeature(CDockWidget.DockWidgetDeleteOnClose, False)
+

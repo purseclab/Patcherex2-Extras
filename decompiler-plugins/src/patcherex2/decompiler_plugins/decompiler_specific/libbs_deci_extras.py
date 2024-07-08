@@ -25,8 +25,9 @@ def load_patched_binary(deci: GhidraDecompilerInterface, binary_path: str):
         diff_plugin = PreciseDiffPlugin(deci.workspace)
         diff_plugin.load_revised_binary_from_file(f"{binary_path}.patched")
     elif isinstance(deci, GhidraDecompilerInterface):
-        
-        f = deci.ghidra.bridge.remote_import("java.io.File")(f"{binary_path}.patched")
-        program = deci.ghidra.importFile(f)
-        f.close()
-        deci.ghidra.state.setCurrentProgram(program)
+        pass
+
+        # f = deci.ghidra.bridge.remote_import("java.io.File")(f"{binary_path}.patched")
+        # program = deci.ghidra.importFile(f)
+        # f.close()
+        # deci.ghidra.state.setCurrentProgram(program)
