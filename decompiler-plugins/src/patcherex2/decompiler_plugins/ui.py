@@ -85,9 +85,10 @@ class ControlPanel(QWidget):
 
     def add_patch_list(self):
         patch_table = QTableWidget()
-        patch_table.setColumnCount(3)
+        patch_table.setColumnCount(6)
         patch_table.setHorizontalHeaderLabels(
-            ["Patch Type", "Location", "Actions"])
+            ["Patch Type", "Location", "", "", "", ""]
+        )
         patch_table.verticalHeader().setVisible(False)
         patch_table.setEditTriggers(QAbstractItemView.NoEditTriggers)
 
@@ -97,6 +98,17 @@ class ControlPanel(QWidget):
         patch_layout.addWidget(patch_table)
 
         self.main_layout.addWidget(patch_group)
+
+        patch_table.horizontalHeader().setSectionResizeMode(
+            0, QHeaderView.ResizeToContents
+        )
+        patch_table.horizontalHeader().setSectionResizeMode(
+            1, QHeaderView.ResizeToContents
+        )
+        patch_table.horizontalHeader().setSectionResizeMode(2, QHeaderView.Stretch)
+        patch_table.horizontalHeader().setSectionResizeMode(5, QHeaderView.Stretch)
+        patch_table.horizontalHeader().setSectionResizeMode(4, QHeaderView.Stretch)
+        patch_table.horizontalHeader().setSectionResizeMode(5, QHeaderView.Stretch)
 
         self.patch_table = patch_table
 
@@ -119,26 +131,64 @@ class ControlPanel(QWidget):
         remove_button.clicked.connect(self.remove_patch)
         edit_button = QPushButton("Edit")
         edit_button.clicked.connect(self.edit_patch)
-        buttons_widget = QWidget()
-        buttons_layout = QHBoxLayout(buttons_widget)
-        buttons_layout.addWidget(edit_button)
-        buttons_layout.addWidget(remove_button)
+        up_button = QPushButton("↑")
+        up_button.clicked.connect(self.move_patch_up)
+        down_button = QPushButton("↓")
+        down_button.clicked.connect(self.move_patch_down)
+
+        self.patch_table.setCellWidget(self.patch_table.rowCount() - 1, 2, edit_button)
         self.patch_table.setCellWidget(
-            self.patch_table.rowCount() - 1, 2, buttons_widget
+            self.patch_table.rowCount() - 1, 3, remove_button
         )
+        self.patch_table.setCellWidget(self.patch_table.rowCount() - 1, 4, up_button)
+        self.patch_table.setCellWidget(self.patch_table.rowCount() - 1, 5, down_button)
+
         self.patch_table.horizontalHeader().setSectionResizeMode(
             0, QHeaderView.ResizeToContents
         )
         self.patch_table.horizontalHeader().setSectionResizeMode(
-            1, QHeaderView.Stretch
+            1, QHeaderView.ResizeToContents
         )
-        self.patch_table.horizontalHeader().setSectionResizeMode(
-            2, QHeaderView.ResizeToContents
+
+    def move_patch_up(self):
+        button = self.sender()
+        row = self.patch_table.indexAt(button.pos()).row()
+        if row == 0:
+            return
+        tmp = self.patch_table.cellWidget(row, 0).text()
+        self.patch_table.cellWidget(row, 0).setText(
+            self.patch_table.cellWidget(row - 1, 0).text()
         )
+        self.patch_table.cellWidget(row - 1, 0).setText(tmp)
+        tmp = self.patch_table.cellWidget(row, 1).text()
+        self.patch_table.cellWidget(row, 1).setText(
+            self.patch_table.cellWidget(row - 1, 1).text()
+        )
+        self.patch_table.cellWidget(row - 1, 1).setText(tmp)
+        patch = self.controller.patches.pop(row)
+        self.controller.patches.insert(row - 1, patch)
+
+    def move_patch_down(self):
+        button = self.sender()
+        row = self.patch_table.indexAt(button.pos()).row()
+        if row == self.patch_table.rowCount() - 1:
+            return
+        tmp = self.patch_table.cellWidget(row, 0).text()
+        self.patch_table.cellWidget(row, 0).setText(
+            self.patch_table.cellWidget(row + 1, 0).text()
+        )
+        self.patch_table.cellWidget(row + 1, 0).setText(tmp)
+        tmp = self.patch_table.cellWidget(row, 1).text()
+        self.patch_table.cellWidget(row, 1).setText(
+            self.patch_table.cellWidget(row + 1, 1).text()
+        )
+        self.patch_table.cellWidget(row + 1, 1).setText(tmp)
+        patch = self.controller.patches.pop(row)
+        self.controller.patches.insert(row + 1, patch)
 
     def remove_patch(self):
         button = self.sender()
-        row = self.patch_table.indexAt(button.parent().pos()).row()
+        row = self.patch_table.indexAt(button.pos()).row()
         self.patch_table.removeRow(row)
         self.controller.patches.pop(row)
 
@@ -146,7 +196,7 @@ class ControlPanel(QWidget):
         # it should pop up a pre-filled PatchCreateDialog with the current values
         # and then update the patch in the controller and the table
         button = self.sender()
-        row = self.patch_table.indexAt(button.parent().pos()).row()
+        row = self.patch_table.indexAt(button.pos()).row()
         patch_type = self.patch_table.cellWidget(row, 0).text()
         patch_args = self.controller.patches[row].args
         patch_args = {k: hex(v) if isinstance(
