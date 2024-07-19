@@ -30,7 +30,7 @@ class ControlPanelView(BaseView):
         self.controller: Patcherex2Controller = controller
         self.control_panel = ControlPanel(self.controller)
         self._init_widgets()
-        self.width_hint = 300
+        self.width_hint = 500
 
     def reload(self):
         pass

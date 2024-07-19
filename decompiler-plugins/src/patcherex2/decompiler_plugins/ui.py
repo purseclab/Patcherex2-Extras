@@ -210,13 +210,18 @@ class ControlPanel(QWidget):
         binary_path = self.controller.deci.binary_path
 
         script = "from patcherex2 import *\n"
-        if self.controller.target == "auto":
-            script += f"p = Patcherex('{binary_path}')\n"
-        else:
+
+        patcherex_args = [f"'{binary_path}'"]
+
+        if self.controller.target != "auto":
             script += f"from patcherex2.targets import {self.controller.target}\n"
-            script += (
-                f"p = Patcherex('{binary_path}', target_cls={self.controller.target})\n"
-            )
+            patcherex_args.append(f"target_cls={self.controller.target}")
+
+        if not isinstance(self.controller.deci,AngrInterface):
+            if isinstance(self.controller.deci,GhidraDecompilerInterface):
+                patcherex_args.append("target_opts={'binary_analyzer': 'ghidra'}")
+
+        script += f"p = Patcherex({', '.join(patcherex_args)})\n"
 
         for address, size in self.controller.manually_added_unused_space:
             script += f"p.allocation_manager.add_free_space({address}, {size}, 'RX')\n"
