@@ -54,9 +54,6 @@ class ControlPanel(QWidget):
 
         self.setLayout(self.main_layout)
 
-        self.controller.deci.gui_register_ctx_menu(
-            "PatchAddress", "Create a patch at this address", lambda *x, **y: PatchThread(self).start(), category="Patcherex2")
-
     def add_options(self):
         options_layout = QGridLayout()
         options_group = QGroupBox("Options")
@@ -242,7 +239,7 @@ class ControlPanel(QWidget):
     def add_bottom_buttons(self):
         bottom_layout = QHBoxLayout()
         add_patch = QPushButton("Add a New Patch")
-        add_patch.clicked.connect(self.add_patch_ctxmenu_addr)
+        add_patch.clicked.connect(self.add_patch)
         regen_script = QPushButton("Regenerate Patch Script")
         regen_script.clicked.connect(self.regen_patch_script)
         patch_binary = QPushButton("Patch Binary")
@@ -317,22 +314,8 @@ class ControlPanel(QWidget):
         dialog = LoadBinaryDialog()
         if dialog.exec() == QDialog.Accepted:
             load_patched_binary(self.controller.deci, binary_path=binary_path)
-
+        
     def add_patch(self):
-        dialog = PatchSelector()
-        if dialog.exec() != QDialog.Accepted:
-            return
-
-        patch_type = dialog.get_value()
-        dialog = PatchCreateDialog(patch_type)
-        if dialog.exec() != QDialog.Accepted:
-            return
-        patch_args = dialog.get_values()
-
-        self.add_patch_list_row(patch_type, patch_args)
-        self.controller.patches.append(UIPatch(patch_type, patch_args))
-
-    def add_patch_ctxmenu_addr(self):
         addr = get_ctx_address(self.controller.deci)
         if addr is None:
             prefill = {}
@@ -351,16 +334,6 @@ class ControlPanel(QWidget):
         self.add_patch_list_row(patch_type, patch_args)
         self.controller.patches.append(UIPatch(patch_type, patch_args))
 
-
-class PatchThread(QThread):
-    def __init__(self, controlpanel: ControlPanel):
-        super().__init__()
-        self.controlpanel = controlpanel
-
-    def run(self):
-        exec()
-        self.controlpanel.add_patch_ctxmenu_addr()
-        exit()
 
 
 class PatchCreateDialog(QDialog):

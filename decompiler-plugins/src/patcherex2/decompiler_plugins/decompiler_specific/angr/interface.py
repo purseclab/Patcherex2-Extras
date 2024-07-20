@@ -4,15 +4,14 @@ from angrmanagement.ui.views.view import BaseView
 from libbs.decompilers.angr.compat import GenericBSAngrManagementPlugin
 from libbs.ui.qt_objects import QVBoxLayout
 from libbs.ui.version import set_ui_version
-
-from PySide6QtAds import SideBarRight, CDockWidget, CDockManager
-
+from PySide6QtAds import CDockManager, CDockWidget, SideBarRight
 from ...controller import Patcherex2Controller
 from ...ui import ControlPanel
 
 if typing.TYPE_CHECKING:
     from angrmanagement.ui.workspace import Workspace
 
+from typing import *
 
 set_ui_version("PySide6")
 
@@ -28,7 +27,7 @@ class ControlPanelView(BaseView):
         )
         self.base_caption = "Patcherex2: Control Panel"
         self.controller: Patcherex2Controller = controller
-        self.control_panel = ControlPanel(self.controller)
+        self.control_panel: ControlPanel = ControlPanel(self.controller)
         self._init_widgets()
         self.width_hint = 500
 
@@ -63,8 +62,8 @@ class Patcherex2Plugin(GenericBSAngrManagementPlugin):
         super().__init__(workspace)
 
         # construct the controller and control panel
-        self.controller = Patcherex2Controller(self.interface)
-        self.control_panel_view = ControlPanelView(
+        self.controller: Patcherex2Controller = Patcherex2Controller(self.interface)
+        self.control_panel_view: ControlPanelView = ControlPanelView(
             workspace.main_instance, "right", self.controller
         )
 
@@ -99,3 +98,7 @@ class Patcherex2Plugin(GenericBSAngrManagementPlugin):
             dock.closed.disconnect()
             dock.setFeature(CDockWidget.DockWidgetDeleteOnClose, False)
 
+    def build_context_menu_insn(
+        self, insn
+    ) -> Iterable[None | tuple[str, Callable[..., Any]]]:
+        return [("Patcherex2", self.control_panel_view.control_panel.add_patch)]
