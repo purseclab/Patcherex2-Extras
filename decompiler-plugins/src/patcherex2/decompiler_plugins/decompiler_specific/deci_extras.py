@@ -1,7 +1,12 @@
+import logging
+
 from angrmanagement.ui.views import DisassemblyView
 from libbs.api import DecompilerInterface
 from libbs.decompilers.angr.interface import AngrInterface
 from libbs.decompilers.ghidra.interface import GhidraDecompilerInterface
+
+
+log = logging.getLogger("patcherex2")
 
 
 def get_ctx_address(deci: DecompilerInterface):
@@ -16,13 +21,15 @@ def get_ctx_address(deci: DecompilerInterface):
         return None
 
 
-def load_patched_binary(deci: GhidraDecompilerInterface, binary_path: str):
+def load_patched_binary(deci: DecompilerInterface, binary_path: str):
     if isinstance(deci, AngrInterface):
         from angrmanagement.plugins.precise_diffing.precisediff_plugin import (
             PreciseDiffPlugin,
         )
 
-        diff_plugin = PreciseDiffPlugin(deci.workspace)
+        deci.workspace.plugins.activate_plugin("precise_diff", PreciseDiffPlugin)
+        diff_plugin = deci.workspace.plugins.get_plugin_instance(PreciseDiffPlugin)
+
         diff_plugin.load_revised_binary_from_file(f"{binary_path}.patched")
     elif isinstance(deci, GhidraDecompilerInterface):
         pass

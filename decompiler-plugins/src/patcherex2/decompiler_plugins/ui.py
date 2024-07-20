@@ -2,16 +2,30 @@ import os
 import select  # noqa: F401
 
 import patcherex2
-from libbs.ui.qt_objects import (QAbstractItemView, QCheckBox, QComboBox,
-                                 QDialog, QDialogButtonBox, QGridLayout,
-                                 QGroupBox, QHBoxLayout, QHeaderView, QLabel,
-                                 QLineEdit, QMessageBox, QPushButton, Qt,
-                                 QTableWidget, QVBoxLayout, QWidget)
+from libbs.ui.qt_objects import (
+    QAbstractItemView,
+    QCheckBox,
+    QComboBox,
+    QDialog,
+    QDialogButtonBox,
+    QGridLayout,
+    QGroupBox,
+    QHBoxLayout,
+    QHeaderView,
+    QLabel,
+    QLineEdit,
+    QMessageBox,
+    QPushButton,
+    Qt,
+    QTableWidget,
+    QVBoxLayout,
+    QWidget,
+)
 from libbs.ui.utils import QThread
 from libbs.ui.version import ui_version
 
 from .controller import Patcherex2Controller, UIPatch
-from .decompiler_specific.libbs_deci_extras import *
+from .decompiler_specific.deci_extras import *
 
 if ui_version == "PySide6":
     from PySide6.QtWidgets import QTextEdit
