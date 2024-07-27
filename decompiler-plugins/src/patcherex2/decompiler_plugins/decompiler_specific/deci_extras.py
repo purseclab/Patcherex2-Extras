@@ -14,7 +14,11 @@ def get_ctx_address(deci: DecompilerInterface):
         if isinstance(deci, AngrInterface):
             # NOTE: need to find actual api way to do this
             curr_view: DisassemblyView = deci.workspace.view_manager.current_tab
-            return curr_view._insn_addr_on_context_menu
+            proj = deci.workspace.main_instance.project
+            offset = (
+                proj.loader.main_object.mapped_base if proj.loader.main_object.pic else 0
+            )
+            return curr_view._insn_addr_on_context_menu - offset
         elif isinstance(deci, GhidraDecompilerInterface):
             return deci.ghidra.currentAddress.getOffset()
     except Exception:
@@ -23,14 +27,7 @@ def get_ctx_address(deci: DecompilerInterface):
 
 def load_patched_binary(deci: DecompilerInterface, binary_path: str):
     if isinstance(deci, AngrInterface):
-        from angrmanagement.plugins.precise_diffing.precisediff_plugin import (
-            PreciseDiffPlugin,
-        )
-
-        deci.workspace.plugins.activate_plugin("precise_diff", PreciseDiffPlugin)
-        diff_plugin = deci.workspace.plugins.get_plugin_instance(PreciseDiffPlugin)
-
-        diff_plugin.load_revised_binary_from_file(f"{binary_path}.patched")
+        deci.angr_plugin.load_patched_binary(f"{binary_path}.patched")
     elif isinstance(deci, GhidraDecompilerInterface):
         pass
 

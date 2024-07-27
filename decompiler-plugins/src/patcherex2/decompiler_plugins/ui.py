@@ -2,6 +2,7 @@ import os
 import re
 import select  # noqa: F401
 
+
 from libbs.ui.qt_objects import (
     QAbstractItemView,
     QCheckBox,
@@ -372,10 +373,11 @@ class ControlPanel(QWidget):
             exec(script)
 
         except Exception as e:
-            logging.getLogger("patcherex2").error(e)
+            logging.getLogger("patcherex2").error("Failed to patch binary", exc_info=1)
             QMessageBox.critical(None, "Error", f"Failed to patch binary: {e}")
             return
         QMessageBox.information(None, "Success", "Binary patched!")
+        self.controller.patched_patches =  self.controller.patches.copy()
         dialog = LoadBinaryDialog()
         if dialog.exec() == QDialog.Accepted:
             load_patched_binary(self.controller.deci, binary_path=binary_path)

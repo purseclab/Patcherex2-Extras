@@ -8,6 +8,7 @@ class Patcherex2Controller:
         self.deci: DecompilerInterface = deci
         self.target = "auto"
         self.patches: list[UIPatch] = []
+        self.patched_patches: list[UIPatch]
         self.find_unused_space = False
         self.manually_added_unused_space = []
 
