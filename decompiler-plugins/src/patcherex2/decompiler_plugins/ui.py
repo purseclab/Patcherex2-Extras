@@ -1,7 +1,7 @@
 import os
+import re
 import select  # noqa: F401
 
-import patcherex2
 from libbs.ui.qt_objects import (
     QAbstractItemView,
     QCheckBox,
@@ -24,18 +24,23 @@ from libbs.ui.qt_objects import (
 from libbs.ui.utils import QThread
 from libbs.ui.version import ui_version
 
+import patcherex2
+from patcherex2 import *
+
 from .controller import Patcherex2Controller, UIPatch
 from .decompiler_specific.deci_extras import *
 
 if ui_version == "PySide6":
+    from PySide6.QtGui import QFont
     from PySide6.QtWidgets import QTextEdit
 else:
     from PyQt5.QtWidgets import QTextEdit
+    from PyQt5.QtGui import QFont
 
 import logging
 
-os.environ['PYTHONBREAKPOINT'] = 'remote_pdb.set_trace'
-os.environ['REMOTE_PDB_PORT'] = '1234'
+os.environ["PYTHONBREAKPOINT"] = "remote_pdb.set_trace"
+os.environ["REMOTE_PDB_PORT"] = "1234"
 
 
 logging.getLogger("patcherex2").setLevel(logging.INFO)
@@ -83,8 +88,7 @@ class ControlPanel(QWidget):
             "Automatically find unused functions and mark them as free space."
         )
         unused_space_checkbox.setChecked(self.controller.find_unused_space)
-        unused_space_checkbox.stateChanged.connect(
-            self.toggle_reuse_unused_funcs)
+        unused_space_checkbox.stateChanged.connect(self.toggle_reuse_unused_funcs)
         options_layout.addWidget(unused_space_checkbox, 1, 0)
 
         # Add unused space button
@@ -135,9 +139,7 @@ class ControlPanel(QWidget):
         loc = patch_args.get("addr", patch_args.get("addr_or_name", ""))
         if isinstance(loc, int):
             loc = hex(loc)
-        self.patch_table.setCellWidget(
-            self.patch_table.rowCount() - 1, 1, QLabel(loc)
-        )
+        self.patch_table.setCellWidget(self.patch_table.rowCount() - 1, 1, QLabel(loc))
         remove_button = QPushButton("Remove")
         remove_button.clicked.connect(self.remove_patch)
         edit_button = QPushButton("Edit")
@@ -210,8 +212,9 @@ class ControlPanel(QWidget):
         row = self.patch_table.indexAt(button.pos()).row()
         patch_type = self.patch_table.cellWidget(row, 0).text()
         patch_args = self.controller.patches[row].args
-        patch_args = {k: hex(v) if isinstance(
-            v, int) else v for k, v in patch_args.items()}
+        patch_args = {
+            k: hex(v) if isinstance(v, int) else v for k, v in patch_args.items()
+        }
         dialog = PatchCreateDialog(patch_type, patch_args)
         dialog.exec_()
         new_patch_args = dialog.get_values()
@@ -228,8 +231,11 @@ class ControlPanel(QWidget):
         script_editor_group.setLayout(script_editor_layout)
 
         script_editor = QTextEdit()
-        script_editor.setPlaceholderText(
-            "Patch script will be generated here.")
+        font = script_editor.document().defaultFont()
+        font.setFamily("Monospace")
+        font.setStyleHint(QFont.StyleHint.Monospace)
+        script_editor.document().setDefaultFont(font)
+        script_editor.setPlaceholderText("Patch script will be generated here.")
         script_editor_layout.addWidget(script_editor)
 
         self.main_layout.addWidget(script_editor_group)
@@ -242,11 +248,14 @@ class ControlPanel(QWidget):
         add_patch.clicked.connect(self.add_patch)
         regen_script = QPushButton("Regenerate Patch Script")
         regen_script.clicked.connect(self.regen_patch_script)
+        reload_patches = QPushButton("Reload Patches From Script")
+        reload_patches.clicked.connect(self.reload_from_script)
         patch_binary = QPushButton("Patch Binary")
         patch_binary.clicked.connect(self.patch_binary)
 
         bottom_layout.addWidget(add_patch)
         bottom_layout.addWidget(regen_script)
+        bottom_layout.addWidget(reload_patches)
         bottom_layout.addWidget(patch_binary)
 
         self.main_layout.addLayout(bottom_layout)
@@ -278,8 +287,8 @@ class ControlPanel(QWidget):
             script += f"from patcherex2.targets import {self.controller.target}\n"
             patcherex_args.append(f"target_cls={self.controller.target}")
 
-        if not isinstance(self.controller.deci,AngrInterface):
-            if isinstance(self.controller.deci,GhidraDecompilerInterface):
+        if not isinstance(self.controller.deci, AngrInterface):
+            if isinstance(self.controller.deci, GhidraDecompilerInterface):
                 patcherex_args.append("target_opts={'binary_analyzer': 'ghidra'}")
 
         script += f"p = Patcherex({', '.join(patcherex_args)})\n"
@@ -299,6 +308,62 @@ class ControlPanel(QWidget):
 
         return script
 
+    def reload_from_script(self):
+        text = self.script_editor.toPlainText()
+
+        pat = re.compile("p = Patcherex\([^)]*\)")
+        text = pat.sub("", text)
+        text = text.replace("p.patches", "patches")
+        text = text.replace("p.apply_patches()", "")
+        pat = re.compile("p\.save_binary\([^)]*\)")
+        text = pat.sub("", text)
+
+        patches = []
+        exec(text)
+
+        while self.patch_table.rowCount() > 0:
+            self.patch_table.removeRow(0)
+        self.controller.patches = []
+
+        for patch in patches:
+            args = {}
+            if isinstance(patch, ModifyDataPatch):
+                patch_name = "ModifyDataPatch"
+                args["addr"] = patch.addr
+                args["new_bytes"] = patch.new_bytes
+            elif isinstance(patch, InsertDataPatch):
+                patch_name = "InsertDataPatch"
+                args["addr_or_name"] = patch.addr or patch.name
+                args["data"] = patch.data
+            elif isinstance(patch, RemoveDataPatch):
+                patch_name = "RemoveDataPatch"
+                args["addr"] = patch.addr
+                args["size"] = patch.size
+            elif isinstance(patch, ModifyInstructionPatch):
+                patch_name = "ModifyInstructionPatch"
+                args["addr"] = patch.addr
+                args["instr"] = patch.instr
+            elif isinstance(patch, InsertInstructionPatch):
+                patch_name = "InsertInstructionPatch"
+                args["addr_or_name"] = patch.addr or patch.name
+                args["instr"] = patch.instr
+            elif isinstance(patch, RemoveInstructionPatch):
+                patch_name = "RemoveInstructionPatch"
+                args["addr"] = patch.addr
+                args["num_instr"] = patch.num_instr
+            elif isinstance(patch, ModifyFunctionPatch):
+                patch_name = "ModifyFunctionPatch"
+                args["addr_or_name"] = patch.addr_or_name
+                args["code"] = patch.code
+            elif isinstance(patch, InsertFunctionPatch):
+                patch_name = "InsertFunctionPatch"
+                args["addr_or_name"] = patch.addr or patch.name
+                args["code"] = patch.code
+                args["prefunc"] = patch.prefunc
+                args["postfunc"] = patch.postfunc
+            self.controller.patches.append(UIPatch(patch_name, args))
+            self.add_patch_list_row(patch_name, args)
+
     def patch_binary(self):
         try:
             binary_path = self.controller.deci.binary_path
@@ -314,7 +379,7 @@ class ControlPanel(QWidget):
         dialog = LoadBinaryDialog()
         if dialog.exec() == QDialog.Accepted:
             load_patched_binary(self.controller.deci, binary_path=binary_path)
-        
+
     def add_patch(self):
         addr = get_ctx_address(self.controller.deci)
         if addr is None:
@@ -325,15 +390,13 @@ class ControlPanel(QWidget):
         if dialog.exec_() != QDialog.Accepted:
             return
         patch_type = dialog.get_value()
-        dialog = PatchCreateDialog(
-            patch_type, prefill)
+        dialog = PatchCreateDialog(patch_type, prefill)
         if dialog.exec_() != QDialog.Accepted:
             return
         patch_args = dialog.get_values()
 
         self.add_patch_list_row(patch_type, patch_args)
         self.controller.patches.append(UIPatch(patch_type, patch_args))
-
 
 
 class PatchCreateDialog(QDialog):
@@ -412,6 +475,13 @@ class PatchCreateDialog(QDialog):
 
 
 class TextOrNoneEdit(QTextEdit):
+    def __init__(self):
+        super().__init__()
+        font = self.document().defaultFont()
+        font.setFamily("Monospace")
+        font.setStyleHint(QFont.StyleHint.Monospace)
+        self.document().setDefaultFont(font)
+
     def get_value(self):
         if self.toPlainText() == "":
             return None
@@ -421,6 +491,10 @@ class TextOrNoneEdit(QTextEdit):
 class CodeEdit(QTextEdit):
     def __init__(self, text: str):
         super().__init__()
+        font = self.document().defaultFont()
+        font.setFamily("Monospace")
+        font.setStyleHint(QFont.StyleHint.Monospace)
+        self.document().setDefaultFont(font)
         self.setPlainText(text)
 
     def get_value(self):
@@ -428,6 +502,13 @@ class CodeEdit(QTextEdit):
 
 
 class AddressOrNameEdit(QLineEdit):
+    def __init__(self, arg):
+        super().__init__(arg)
+        font = self.font()
+        font.setFamily("Monospace")
+        font.setStyleHint(QFont.StyleHint.Monospace)
+        self.setFont(font)
+
     def get_value(self):
         try:
             return int(self.text(), 0)
@@ -436,6 +517,13 @@ class AddressOrNameEdit(QLineEdit):
 
 
 class AddressEdit(QLineEdit):
+    def __init__(self, arg):
+        super().__init__(arg)
+        font = self.font()
+        font.setFamily("Monospace")
+        font.setStyleHint(QFont.StyleHint.Monospace)
+        self.setFont(font)
+
     def get_value(self):
         try:
             return int(self.text(), 0)
@@ -446,6 +534,10 @@ class AddressEdit(QLineEdit):
 class BytesEdit(QTextEdit):
     def __init__(self, text: str):
         super().__init__()
+        font = self.document().defaultFont()
+        font.setFamily("Monospace")
+        font.setStyleHint(QFont.StyleHint.Monospace)
+        self.document().setDefaultFont(font)
         self.setPlainText(text)
 
     def get_value(self):
@@ -468,8 +560,7 @@ class PatchSelector(QDialog):
             self.patch_selector.addItem(patch)
         layout.addWidget(self.patch_selector)
 
-        button_box = QDialogButtonBox(
-            QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
+        button_box = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
         button_box.accepted.connect(self.accept)
         button_box.rejected.connect(self.reject)
         layout.addWidget(button_box)
@@ -491,8 +582,7 @@ class LoadBinaryDialog(QDialog):
         instructions = QLabel("Would you like to load the patched binary?")
         layout.addWidget(instructions)
 
-        button_box = QDialogButtonBox(
-            QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
+        button_box = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
         button_box.accepted.connect(self.accept)
         button_box.rejected.connect(self.reject)
         layout.addWidget(button_box)
@@ -507,8 +597,7 @@ class AddUnusedSpaceDialog(QDialog):
         self.setWindowTitle("Patcherex2")
         layout = QVBoxLayout()
 
-        label = QLabel(
-            "Please enter the address and size of the unused space.")
+        label = QLabel("Please enter the address and size of the unused space.")
         layout.addWidget(label)
 
         address_label = QLabel("Address:")
