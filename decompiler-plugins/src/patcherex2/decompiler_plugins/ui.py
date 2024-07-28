@@ -40,8 +40,8 @@ else:
 
 import logging
 
-os.environ["PYTHONBREAKPOINT"] = "remote_pdb.set_trace"
-os.environ["REMOTE_PDB_PORT"] = "1234"
+# os.environ["PYTHONBREAKPOINT"] = "remote_pdb.set_trace"
+# os.environ["REMOTE_PDB_PORT"] = "1234"
 
 
 logging.getLogger("patcherex2").setLevel(logging.INFO)
@@ -221,7 +221,7 @@ class ControlPanel(QWidget):
         new_patch_args = dialog.get_values()
         self.controller.patches[row] = UIPatch(patch_type, new_patch_args)
 
-        loc = new_patch_args.get("addr", patch_args.get("addr_or_name", ""))
+        loc = new_patch_args.get("addr", new_patch_args.get("addr_or_name", ""))
         if isinstance(loc, int):
             loc = hex(loc)
         self.patch_table.cellWidget(row, 1).setText(loc)
@@ -383,6 +383,7 @@ class ControlPanel(QWidget):
             load_patched_binary(self.controller.deci, binary_path=binary_path)
 
     def add_patch(self):
+        open_panel(self.controller.deci)
         addr = get_ctx_address(self.controller.deci)
         if addr is None:
             prefill = {}
@@ -477,8 +478,8 @@ class PatchCreateDialog(QDialog):
 
 
 class TextOrNoneEdit(QTextEdit):
-    def __init__(self):
-        super().__init__()
+    def __init__(self, arg):
+        super().__init__(arg)
         font = self.document().defaultFont()
         font.setFamily("Monospace")
         font.setStyleHint(QFont.StyleHint.Monospace)

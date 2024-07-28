@@ -35,3 +35,7 @@ def load_patched_binary(deci: DecompilerInterface, binary_path: str):
         # program = deci.ghidra.importFile(f)
         # f.close()
         # deci.ghidra.state.setCurrentProgram(program)
+
+def open_panel(deci: DecompilerInterface):
+    if isinstance(deci, AngrInterface):
+        deci.angr_plugin.open_panel()

@@ -16,7 +16,7 @@ from libbs.ui.version import set_ui_version
 from PySide6.QtGui import QColor
 from PySide6QtAds import CDockManager, CDockWidget, SideBarRight
 
-from ...controller import Patcherex2Controller
+from ...controller import Patcherex2Controller, UIPatch
 from ...ui import ControlPanel
 
 if typing.TYPE_CHECKING:
@@ -112,20 +112,31 @@ class Patcherex2Plugin(GenericBSAngrManagementPlugin):
             dock.closed.disconnect()
             dock.setFeature(CDockWidget.DockWidgetDeleteOnClose, False)
 
+    def open_panel(self):
+        if self.control_panel_view not in self.workspace.view_manager.views:
+            self.workspace.add_view(self.control_panel_view)
+            dock = self.workspace.view_manager.view_to_dock[self.control_panel_view]
+            dock.closed.disconnect()
+            dock.setFeature(CDockWidget.DockWidgetDeleteOnClose, False)
+
     def build_context_menu_insn(
         self, insn
     ) -> Iterable[None | tuple[str, Callable[..., Any]]]:
         return [("Patcherex2", self.control_panel_view.control_panel.add_patch)]
 
     def color_insn(self, addr: int, selected, disasm_view) -> QColor | None:
-        if disasm_view is not self.patched_view:
-            return None
-        if addr in self.patch_addrs:
-            return QColor(0, 100, 160)
-        elif addr in self.remove_addrs:
-            return QColor(150, 100, 0)
-        else:
-            return None
+        if disasm_view is self.patched_view:
+            if addr in self.patch_addrs:
+                return QColor(0, 100, 160)
+            elif addr in self.remove_addrs:
+                return QColor(150, 100, 0)
+            else:
+                return None
+        elif disasm_view is self.original_view:
+            if addr in self.patch_addrs or addr in self.remove_addrs:
+                return QColor(200, 150, 0)
+            else:
+                return None
 
     def function_instrs(self, func: Function) -> dict[int, CapstoneInsn]:
         sorted_blocks = sorted(func.blocks, key=lambda b: b.addr)
@@ -184,14 +195,23 @@ class Patcherex2Plugin(GenericBSAngrManagementPlugin):
                         if not og_i or not ptc_i:
                             break
                         if (
-                            og_i.mnemonic == ptc_i.mnemonic
+                            og_i.address == ptc_i.address
+                            and og_i.mnemonic == ptc_i.mnemonic
                             and og_i.op_str == ptc_i.op_str
                         ):
                             break
                         self.patch_addrs.add(og_i.address)
                         self.patch_addrs.add(ptc_i.address)
-                        og_i = og_instrs[og_i.address + og_i.size]
-                        ptc_i = ptc_instrs[ptc_i.address + ptc_i.size]
+                        if og_i.address + og_i.size <= ptc_i.address + ptc_i.size:
+                            og_next = og_instrs[og_i.address + og_i.size]
+                        else:
+                            og_next = og_i
+                        if ptc_i.address + ptc_i.size <= og_i.address + og_i.size:
+                            ptc_next = ptc_instrs[ptc_i.address + ptc_i.size]
+                        else:
+                            ptc_next = ptc_i
+                        og_i = og_next
+                        ptc_i = ptc_next
                 case "InsertInstructionPatch":
                     loc = patch.args["addr_or_name"]
                     if isinstance(loc, int):
@@ -233,10 +253,19 @@ class Patcherex2Plugin(GenericBSAngrManagementPlugin):
                         loc += offset
                     try:
                         func = self.patched_instance.kb.functions[loc]
+                        og_func = self.original_view.instance.kb.functions[loc]
                     except:
                         continue
-                    for i in range(func.addr, func.addr + func.size):
-                        self.patch_addrs.add(i)
+                    if og_func.size > func.size:
+                        for i in range(func.addr, func.addr + func.size):
+                            self.patch_addrs.add(i)
+                        for i in range(
+                            func.addr + func.size, og_func.addr + og_func.size
+                        ):
+                            self.remove_addrs.add(i)
+                    else:
+                        #TODO trampoline functions
+                        pass 
                 case "InsertFunctionPatch":
                     loc = patch.args["addr_or_name"]
                     if isinstance(loc, int):
