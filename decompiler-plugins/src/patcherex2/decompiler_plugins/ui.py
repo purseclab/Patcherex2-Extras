@@ -2,7 +2,6 @@ import os
 import re
 import select  # noqa: F401
 
-
 from libbs.ui.qt_objects import (
     QAbstractItemView,
     QCheckBox,
@@ -35,8 +34,8 @@ if ui_version == "PySide6":
     from PySide6.QtGui import QFont
     from PySide6.QtWidgets import QTextEdit
 else:
-    from PyQt5.QtWidgets import QTextEdit
     from PyQt5.QtGui import QFont
+    from PyQt5.QtWidgets import QTextEdit
 
 import logging
 
@@ -139,7 +138,7 @@ class ControlPanel(QWidget):
 
         loc = patch_args.get("addr", patch_args.get("addr_or_name", ""))
         if isinstance(loc, int):
-            loc = hex(loc)
+            loc = hex(denormalize_addr(self.controller.deci, loc))
         self.patch_table.setCellWidget(self.patch_table.rowCount() - 1, 1, QLabel(loc))
         remove_button = QPushButton("Remove")
         remove_button.clicked.connect(self.remove_patch)
@@ -212,18 +211,38 @@ class ControlPanel(QWidget):
         button = self.sender()
         row = self.patch_table.indexAt(button.pos()).row()
         patch_type = self.patch_table.cellWidget(row, 0).text()
-        patch_args = self.controller.patches[row].args
+        patch_args = self.controller.patches[row].args.copy()
+        if "addr" in patch_args.keys():
+            patch_args["addr"] = denormalize_addr(
+                self.controller.deci, patch_args["addr"]
+            )
+        if "addr_or_name" in patch_args.keys() and isinstance(
+            patch_args["addr_or_name"], int
+        ):
+            patch_args["addr_or_name"] = denormalize_addr(
+                self.controller.deci, patch_args["addr_or_name"]
+            )
         patch_args = {
             k: hex(v) if isinstance(v, int) else v for k, v in patch_args.items()
         }
         dialog = PatchCreateDialog(patch_type, patch_args)
         dialog.exec_()
         new_patch_args = dialog.get_values()
+        if "addr" in patch_args.keys():
+            patch_args["addr"] = normalize_addr(
+                self.controller.deci, patch_args["addr"]
+            )
+        if "addr_or_name" in patch_args.keys() and isinstance(
+            patch_args["addr_or_name"], int
+        ):
+            patch_args["addr_or_name"] = normalize_addr(
+                self.controller.deci, patch_args["addr_or_name"]
+            )
         self.controller.patches[row] = UIPatch(patch_type, new_patch_args)
 
         loc = new_patch_args.get("addr", new_patch_args.get("addr_or_name", ""))
         if isinstance(loc, int):
-            loc = hex(loc)
+            loc = hex(denormalize_addr(self.controller.deci, loc))
         self.patch_table.cellWidget(row, 1).setText(loc)
 
     def add_patch_script_editor(self):
@@ -377,7 +396,7 @@ class ControlPanel(QWidget):
             QMessageBox.critical(None, "Error", f"Failed to patch binary: {e}")
             return
         QMessageBox.information(None, "Success", "Binary patched!")
-        self.controller.patched_patches =  self.controller.patches.copy()
+        self.controller.patched_patches = self.controller.patches.copy()
         dialog = LoadBinaryDialog()
         if dialog.exec() == QDialog.Accepted:
             load_patched_binary(self.controller.deci, binary_path=binary_path)
@@ -397,6 +416,17 @@ class ControlPanel(QWidget):
         if dialog.exec_() != QDialog.Accepted:
             return
         patch_args = dialog.get_values()
+
+        if "addr" in patch_args.keys():
+            patch_args["addr"] = normalize_addr(
+                self.controller.deci, patch_args["addr"]
+            )
+        if "addr_or_name" in patch_args.keys() and isinstance(
+            patch_args["addr_or_name"], int
+        ):
+            patch_args["addr_or_name"] = normalize_addr(
+                self.controller.deci, patch_args["addr_or_name"]
+            )
 
         self.add_patch_list_row(patch_type, patch_args)
         self.controller.patches.append(UIPatch(patch_type, patch_args))
