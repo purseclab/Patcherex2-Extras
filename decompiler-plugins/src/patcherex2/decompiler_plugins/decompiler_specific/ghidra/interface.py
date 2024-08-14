@@ -22,12 +22,6 @@ class ControlPanelWindow(QMainWindow):
         )
         self.controller = Patcherex2Controller(self._interface)
         self.control_panel = ControlPanel(self.controller)
-        self.controller.deci.gui_register_ctx_menu(
-            "PatchAddress",
-            "Create a patch at this address",
-            lambda *x, **y: self.control_panel.add_patch,
-            category="Patcherex2",
-        )
         self._init_widgets()
 
     def _init_widgets(self):
@@ -43,5 +37,12 @@ def start_ghidra_remote_ui():
     cp_window = ControlPanelWindow()
 
     cp_window.show()
+
+    cp_window.controller.deci.gui_register_ctx_menu(
+        "PatchAddress",
+        "Create a patch at this address",
+        lambda *x, **y: cp_window.control_panel.add_patch,
+        category="Patcherex2",
+    )
 
     app.exec_()

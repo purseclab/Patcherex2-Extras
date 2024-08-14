@@ -2,29 +2,27 @@ import os
 import re
 import select  # noqa: F401
 
-from libbs.ui.qt_objects import (
-    QAbstractItemView,
-    QCheckBox,
-    QComboBox,
-    QDialog,
-    QDialogButtonBox,
-    QGridLayout,
-    QGroupBox,
-    QHBoxLayout,
-    QHeaderView,
-    QLabel,
-    QLineEdit,
-    QMessageBox,
-    QPushButton,
-    Qt,
-    QTableWidget,
-    QVBoxLayout,
-    QWidget,
-)
-from libbs.ui.utils import QThread
-from libbs.ui.version import ui_version
-
 import patcherex2
+
+# from libbs.ui.qt_objects import (
+#     QAbstractItemView,
+#     QCheckBox,
+#     QComboBox,
+#     QDialog,
+#     QDialogButtonBox,
+#     QGridLayout,
+#     QGroupBox,
+#     QHBoxLayout,
+#     QHeaderView,
+#     QLabel,
+#     QLineEdit,
+#     QMessageBox,
+#     QPushButton,
+#     QTableWidget,
+#     QVBoxLayout,
+#     QWidget,
+# )
+from libbs.ui.version import ui_version
 from patcherex2 import *
 
 from .controller import Patcherex2Controller, UIPatch
@@ -32,10 +30,51 @@ from .decompiler_specific.deci_extras import *
 
 if ui_version == "PySide6":
     from PySide6.QtGui import QFont
-    from PySide6.QtWidgets import QTextEdit
+    from PySide6.QtWidgets import (
+        QAbstractItemView,
+        QApplication,
+        QCheckBox,
+        QComboBox,
+        QDialog,
+        QDialogButtonBox,
+        QGridLayout,
+        QGroupBox,
+        QHBoxLayout,
+        QHeaderView,
+        QLabel,
+        QLineEdit,
+        QMessageBox,
+        QProgressDialog,
+        QPushButton,
+        QTableWidget,
+        QTextEdit,
+        QVBoxLayout,
+        QWidget,
+    )
 else:
     from PyQt5.QtGui import QFont
-    from PyQt5.QtWidgets import QTextEdit
+    from PyQt5.QtWidgets import (
+        QAbstractItemView,
+        QApplication,
+        QCheckBox,
+        QComboBox,
+        QDialog,
+        QDialogButtonBox,
+        QFont,
+        QGridLayout,
+        QGroupBox,
+        QHBoxLayout,
+        QHeaderView,
+        QLabel,
+        QLineEdit,
+        QMessageBox,
+        QProgressDialog,
+        QPushButton,
+        QTableWidget,
+        QTextEdit,
+        QVBoxLayout,
+        QWidget,
+    )
 
 import logging
 
@@ -385,6 +424,14 @@ class ControlPanel(QWidget):
             self.add_patch_list_row(patch_name, args)
 
     def patch_binary(self):
+        progressdialog = QProgressDialog()
+        progressdialog.setRange(0, 0)
+        progressdialog.setWindowTitle("Patching...")
+        progressdialog.setLabelText("Patching...")
+        progressdialog.setCancelButton(None)
+        progressdialog.show()
+        QApplication.processEvents()
+
         try:
             binary_path = self.controller.deci.binary_path
             script = self.script_editor.toPlainText()
@@ -393,8 +440,10 @@ class ControlPanel(QWidget):
 
         except Exception as e:
             logging.getLogger("patcherex2").error("Failed to patch binary", exc_info=1)
+            progressdialog.hide()
             QMessageBox.critical(None, "Error", f"Failed to patch binary: {e}")
             return
+        progressdialog.hide()
         QMessageBox.information(None, "Success", "Binary patched!")
         self.controller.patched_patches = self.controller.patches.copy()
         dialog = LoadBinaryDialog()
