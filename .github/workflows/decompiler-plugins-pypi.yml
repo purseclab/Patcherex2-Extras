@@ -22,11 +22,6 @@ jobs:
         pip install
         build
         --user
-    - name: Update version in pyproject.toml
-      working-directory: ${{ github.workspace }}/decompiler-plugins
-      run: |
-        version=$(echo "${{ github.ref_name }}" | sed 's:.*/::')
-        sed -i "s/^version = \".*\"/version = \"$version\"/" pyproject.toml
     - name: Build a binary wheel and a source tarball
       working-directory: ${{ github.workspace }}/decompiler-plugins
       run: >-

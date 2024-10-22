@@ -1,3 +1,8 @@
+from importlib import metadata
+
+__version__ = metadata.version("patcherex2-decompiler-plugins")
+
+
 def create_plugin(*args, **kwargs):
     """
     This is the entry point that all decompilers will call in various ways. To remain agnostic,

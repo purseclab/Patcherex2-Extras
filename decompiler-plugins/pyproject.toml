@@ -1,10 +1,10 @@
 [build-system]
-requires = ["setuptools"]
+requires = ["setuptools>=64", "setuptools-scm>=8"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "patcherex2-decompiler-plugins"
-version = "0.0.0"
+dynamic = ["version"]
 requires-python = ">=3.8"
 readme = "README.md"
 dependencies = [
@@ -26,3 +26,7 @@ include = ["patcherex2.decompiler_plugins"]
 
 [tool.ruff.lint]
 extend-select = ["I", "N", "UP", "B"]
+
+[tool.setuptools_scm]
+root = ".."
+tag_regex = '^decompiler-plugins/(?P<version>[vV]?\d+(?:\.\d+){0,2}[^\+]*)(?:\+.*)?$'
