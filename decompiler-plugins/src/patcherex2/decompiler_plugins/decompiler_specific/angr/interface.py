@@ -14,7 +14,7 @@ from libbs.decompilers.angr.compat import GenericBSAngrManagementPlugin
 from libbs.ui.qt_objects import QVBoxLayout
 from libbs.ui.version import set_ui_version
 from PySide6.QtGui import QColor
-from PySide6QtAds import CDockManager, CDockWidget, SideBarRight
+from PySide6QtAds import CDockWidget
 
 from ...controller import Patcherex2Controller, UIPatch
 from ...ui import ControlPanel
@@ -32,9 +32,11 @@ class ControlPanelView(BaseView):
     The class for the window that shows changes/info to Patcherex2 data.
     """
 
-    def __init__(self, instance, default_docking_position, controller, *args, **kwargs):
+    def __init__(
+        self, workspace, default_docking_position, controller, *args, **kwargs
+    ):
         super().__init__(
-            "patching", instance.workspace, default_docking_position, *args, **kwargs
+            "patching", workspace, default_docking_position, *args, **kwargs
         )
         self.base_caption = "Patcherex2: Control Panel"
         self.controller: Patcherex2Controller = controller
@@ -264,8 +266,8 @@ class Patcherex2Plugin(GenericBSAngrManagementPlugin):
                         ):
                             self.remove_addrs.add(i)
                     else:
-                        #TODO trampoline functions
-                        pass 
+                        # TODO trampoline functions
+                        pass
                 case "InsertFunctionPatch":
                     loc = patch.args["addr_or_name"]
                     if isinstance(loc, int):
