@@ -303,17 +303,26 @@ class Patcherex2Plugin(GenericBSAngrManagementPlugin):
     def _create_instance_from_binary(self, file_path: str) -> None:
         self.patched_instance.workspace = self.workspace
 
-        job = LoadBinaryJob(file_path, on_finish=self._create_instance_from_binary_done)
+        job = LoadBinaryJob(
+            self.patched_instance,
+            file_path,
+            on_finish=self._create_instance_from_binary_done,
+        )
         self.loaded_binary = file_path
-        self.patched_instance.job_manager.add_job(job)
+        self.patched_instance.workspace.job_manager.add_job(job)
 
     def _create_instance_from_binary_done(self, *args, **kwargs) -> None:  # pylint:disable=unused-argument
-        job = CFGGenerationJob(on_finish=self._generate_binary_cfg_done)
-        self.patched_instance.job_manager.add_job(job)
+        job = CFGGenerationJob(
+            self.patched_instance, on_finish=self._generate_binary_cfg_done
+        )
+        self.patched_instance.workspace.job_manager.add_job(job)
 
-    def _generate_binary_cfg_done(self, inst, cfg_info, *args, **kwargs) -> None:  # pylint:disable=unused-argument
-        cfg_model, _ = cfg_info
-        self.patched_instance.cfg = cfg_model
+    def _generate_binary_cfg_done(self, cfg_result, *args, **kwargs) -> None:  # pylint:disable=unused-argument
+        cfg, cfb = cfg_result
+        self.patched_instance.cfb = cfb
+        self.patched_instance.cfg = cfg
+        self.patched_instance.cfb.am_event()
+        self.patched_instance.cfg.am_event()
         self.patched_binary_loaded()
 
     def patched_binary_loaded(self):
